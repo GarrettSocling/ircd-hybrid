@@ -869,7 +869,9 @@ set_default_conf(void)
   ConfigGeneral.no_oper_flood = 0;
   ConfigGeneral.oper_pass_resv = 1;
   ConfigGeneral.max_targets = MAX_TARGETS_DEFAULT;
-  ConfigGeneral.oper_only_umodes = UMODE_DEBUG;
+  ConfigGeneral.oper_only_umodes = UMODE_DEBUG | UMODE_LOCOPS | UMODE_HIDDEN | UMODE_FARCONNECT |
+                                   UMODE_UNAUTH | UMODE_EXTERNAL | UMODE_BOTS | UMODE_NCHANGE |
+                                   UMODE_SPY | UMODE_FULL | UMODE_SKILL | UMODE_REJ | UMODE_CCONN;
   ConfigGeneral.oper_umodes = UMODE_BOTS | UMODE_LOCOPS | UMODE_SERVNOTICE | UMODE_WALLOP;
   ConfigGeneral.throttle_count = 1;
   ConfigGeneral.throttle_time = 1;
@@ -1122,8 +1124,7 @@ oper_privs_as_string(const unsigned int port)
 const char *
 get_oper_name(const struct Client *client_p)
 {
-  /* +5 for !,@,{,} and null */
-  static char buffer[NICKLEN + USERLEN + HOSTLEN + HOSTLEN + 5];
+  static char buffer[IRCD_BUFSIZE];
 
   if (IsServer(client_p))
     return client_p->name;
@@ -1308,7 +1309,7 @@ read_conf_files(int cold)
   snprintf(chanlimit, sizeof(chanlimit), "#:%d",
            ConfigChannel.max_channels);
   add_isupport("CHANLIMIT", chanlimit, -1);
-  snprintf(chanmodes, sizeof(chanmodes), "%s", "beI,k,l,cimnprstMORS");
+  snprintf(chanmodes, sizeof(chanmodes), "%s", "beI,k,l,cimnprstCMORS");
   add_isupport("CHANNELLEN", NULL, CHANNELLEN);
   add_isupport("TOPICLEN", NULL, ConfigServerInfo.max_topic_length);
   add_isupport("CHANMODES", chanmodes, -1);
