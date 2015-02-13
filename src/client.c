@@ -87,21 +87,21 @@ make_client(struct Client *from)
 
   if (!from)
   {
-    client_p->from                      = client_p; /* 'from' of local client is self! */
-    client_p->connection               = mp_pool_get(connection_pool);
-    client_p->connection->since        = CurrentTime;
-    client_p->connection->lasttime     = CurrentTime;
-    client_p->connection->firsttime    = CurrentTime;
+    client_p->from = client_p;  /* 'from' of local client is self! */
+    client_p->connection = mp_pool_get(connection_pool);
+    client_p->connection->since = CurrentTime;
+    client_p->connection->lasttime = CurrentTime;
+    client_p->connection->firsttime = CurrentTime;
     client_p->connection->registration = REG_INIT;
 
     /* as good a place as any... */
     dlinkAdd(client_p, &client_p->connection->lclient_node, &unknown_list);
   }
   else
-    client_p->from = from; /* 'from' of local client is self! */
+    client_p->from = from;
 
   client_p->idhnext = client_p;
-  client_p->hnext  = client_p;
+  client_p->hnext = client_p;
   SetUnknown(client_p);
   strcpy(client_p->username, "unknown");
   strcpy(client_p->account, "0");
@@ -138,8 +138,8 @@ free_client(struct Client *client_p)
     assert(IsClosing(client_p) && IsDead(client_p));
 
     MyFree(client_p->connection->challenge_response);
-    MyFree(client_p->connection->challenge_operator);
     client_p->connection->challenge_response = NULL;
+    MyFree(client_p->connection->challenge_operator);
     client_p->connection->challenge_operator = NULL;
 
     /*
@@ -158,6 +158,21 @@ free_client(struct Client *client_p)
   }
 
   mp_pool_release(client_p);
+}
+
+void
+client_clear_svstags(struct Client *client_p)
+{
+  dlink_node *node = NULL, *node_next = NULL;
+
+  DLINK_FOREACH_SAFE(node, node_next, client_p->svstags.head)
+  {
+    struct ServicesTag *svstag = node->data;
+
+    dlinkDelete(&svstag->node, &client_p->svstags);
+    MyFree(svstag->tag);
+    MyFree(svstag);
+  }
 }
 
 /* check_pings_list()
@@ -744,6 +759,8 @@ exit_client(struct Client *source_p, const char *comment)
         free_list_task(source_p);
 
       watch_del_watch_list(source_p);
+      client_clear_svstags(source_p);
+
       sendto_realops_flags(UMODE_CCONN, L_ALL, SEND_NOTICE,
                            "Client exiting: %s (%s@%s) [%s] [%s]",
                            source_p->name, source_p->username, source_p->host, comment,
@@ -1051,7 +1068,8 @@ del_all_accepts(struct Client *client_p)
 }
 
 unsigned int
-idle_time_get(const struct Client *source_p, const struct Client *target_p)
+client_get_idle_time(const struct Client *source_p,
+                     const struct Client *target_p)
 {
   unsigned int idle = 0;
   unsigned int min_idle = 0;

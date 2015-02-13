@@ -69,7 +69,8 @@ static void
 whois_person(struct Client *source_p, struct Client *target_p)
 {
   char buf[IRCD_BUFSIZE] = "";
-  const dlink_node *lp = NULL;
+  const dlink_node *node = NULL;
+  const struct ServicesTag *svstag = NULL;
   char *t = NULL;
   int cur_len = 0;
   int mlen = 0;
@@ -84,9 +85,9 @@ whois_person(struct Client *source_p, struct Client *target_p)
                             me.name, source_p->name, target_p->name, "");
   t = buf + mlen;
 
-  DLINK_FOREACH(lp, target_p->channel.head)
+  DLINK_FOREACH(node, target_p->channel.head)
   {
-    const struct Membership *member = lp->data;
+    const struct Membership *member = node->data;
     int show = whois_can_see_channels(member->chptr, source_p, target_p);
 
     if (show)
@@ -143,11 +144,30 @@ whois_person(struct Client *source_p, struct Client *target_p)
                                   "server side ignore with the exception of common channels");
   }
 
+  if (target_p->svstags.head)
+    svstag = target_p->svstags.head->data;
+
   if (HasUMode(target_p, UMODE_OPER))
     if (!HasUMode(target_p, UMODE_HIDDEN) || HasUMode(source_p, UMODE_OPER))
-      sendto_one_numeric(source_p, &me, RPL_WHOISOPERATOR, target_p->name,
-                 HasUMode(target_p, UMODE_ADMIN) ? "is a Server Administrator" :
+      if (!svstag || svstag->numeric != RPL_WHOISOPERATOR)
+        sendto_one_numeric(source_p, &me, RPL_WHOISOPERATOR, target_p->name,
+                   HasUMode(target_p, UMODE_ADMIN) ? "is a Server Administrator" :
                                                    "is an IRC Operator");
+
+  DLINK_FOREACH(node, target_p->svstags.head)
+  {
+    svstag = node->data;
+
+    if (svstag->numeric == RPL_WHOISOPERATOR)
+      if (HasUMode(target_p, UMODE_HIDDEN) && !HasUMode(source_p, UMODE_OPER))
+        continue;
+
+    if (!svstag->privilege ||
+        (svstag->privilege == 1 && HasUMode(source_p, UMODE_OPER)) ||
+        (svstag->privilege == 2 && HasUMode(source_p, UMODE_ADMIN)))
+      sendto_one_numeric(source_p, &me, svstag->numeric | SND_EXPLICIT, "%s :%s",
+                         target_p->name, svstag->tag);
+  }
 
   if (HasUMode(target_p, UMODE_WEBIRC))
     sendto_one_numeric(source_p, &me, RPL_WHOISTEXT, target_p->name,
@@ -182,7 +202,7 @@ whois_person(struct Client *source_p, struct Client *target_p)
     if (!HasUMode(target_p, UMODE_HIDEIDLE) || HasUMode(source_p, UMODE_OPER) ||
         source_p == target_p)
       sendto_one_numeric(source_p, &me, RPL_WHOISIDLE, target_p->name,
-                         idle_time_get(source_p, target_p),
+                         client_get_idle_time(source_p, target_p),
                          target_p->connection->firsttime);
 }
 
