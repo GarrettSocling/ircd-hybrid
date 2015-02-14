@@ -49,25 +49,22 @@
  *      - parv[1] = nickname
  *      - parv[2] = TS
  *      - parv[3] = [-][raw]
- *      - parv[4] = required privileges to see the tag; 0 user, 1 oper, 2 admin
+ *      - parv[4] = required user mode(s) to see the tag
  *      - parv[5] = tag line
  */
 static int
 ms_svstag(struct Client *source_p, int parc, char *parv[])
 {
   struct Client *target_p = NULL;
-  struct ServicesTag *svstag = NULL;
   time_t ts = 0;
 
   if (!HasFlag(source_p, FLAGS_SERVICE) && !IsServer(source_p))
     return 0;
 
-  ts = atol(parv[2]);
-
   if ((target_p = find_person(source_p, parv[1])) == NULL)
     return 0;
 
-  if (ts && (ts != target_p->tsinfo))
+  if ((ts = atol(parv[2])) && ts != target_p->tsinfo)
     return 0;
 
   if (!strncmp(parv[3], "-", 1))
@@ -83,11 +80,8 @@ ms_svstag(struct Client *source_p, int parc, char *parv[])
   if (parc < 6 || EmptyString(parv[5]))
     return 0;
 
-  svstag = MyCalloc(sizeof(*svstag));
-  svstag->numeric = strtoul(parv[3], NULL, 10);
-  svstag->privilege = strtoul(parv[4], NULL, 10);
-  svstag->tag = xstrdup(parv[5]);
-  dlinkAddTail(svstag, &svstag->node, &target_p->svstags);
+  client_attach_svstag(target_p, strtoul(parv[3], NULL, 10),
+                       parv[4], parv[5]);
 
   sendto_server(source_p, 0, 0, ":%s SVSTAG %s %lu %s %s :%s",
                 source_p->id,

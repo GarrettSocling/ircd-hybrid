@@ -161,6 +161,30 @@ free_client(struct Client *client_p)
 }
 
 void
+client_attach_svstag(struct Client *client_p, unsigned int numeric,
+                     const char *umodes, const char *const tag)
+{
+  struct ServicesTag *svstag = NULL;
+  const struct user_modes *tab = NULL;
+
+  if (numeric >= ERR_LAST_ERR_MSG || *umodes != '+')
+    return;
+
+  svstag = MyCalloc(sizeof(*svstag));
+  svstag->numeric = numeric;
+  svstag->tag = xstrdup(tag);
+
+  for (const char *m = umodes + 1; *m; ++m)
+    if ((tab = umode_map[(unsigned char)*m]))
+      svstag->umodes |= tab->flag;
+
+  if (numeric != RPL_WHOISOPERATOR)
+    dlinkAddTail(svstag, &svstag->node, &client_p->svstags);
+  else
+    dlinkAdd(svstag, &svstag->node, &client_p->svstags);
+}
+
+void
 client_clear_svstags(struct Client *client_p)
 {
   dlink_node *node = NULL, *node_next = NULL;
