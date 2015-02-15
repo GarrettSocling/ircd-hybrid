@@ -19,7 +19,7 @@
  *  USA
  */
 
-/*! \file s_user.c
+/*! \file user.c
  * \brief User related functions.
  * \version $Id$
  */
@@ -366,8 +366,6 @@ register_local_user(struct Client *source_p)
   assert(source_p == source_p->from);
   assert(MyConnect(source_p));
   assert(!source_p->connection->registration);
-
-  ClearCap(source_p, CAP_TS6);
 
   if (ConfigGeneral.ping_cookie)
   {
