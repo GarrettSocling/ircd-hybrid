@@ -103,7 +103,7 @@ check_string(char *s)
 }
 
 /*
- * Ban functions to work with mode +b/e/d/I
+ * Ban functions to work with mode +b/e/I
  */
 /* add the specified ID to the channel.
  *   -is 8/9/00
@@ -505,7 +505,7 @@ static void
 chm_operonly(struct Client *source_p, struct Channel *chptr, int parc, int *parn,
              char **parv, int *errors, int alev, int dir, char c, unsigned int d)
 {
-  if (alev < CHACCESS_CHANOP)
+  if (alev < CHACCESS_HALFOP)
   {
     if (!(*errors & SM_ERR_NOOPS))
       sendto_one_numeric(source_p, &me,
