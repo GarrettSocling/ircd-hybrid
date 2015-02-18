@@ -125,7 +125,7 @@ free_client(struct Client *client_p)
   assert(client_p->channel.head == NULL);
   assert(dlink_list_length(&client_p->channel) == 0);
   assert(dlink_list_length(&client_p->whowas) == 0);
-  assert(!IsServer(client_p) || client_p->serv);
+  assert(dlink_list_length(&client_p->svstags) == 0);
 
   MyFree(client_p->serv);
   MyFree(client_p->certfp);
@@ -143,7 +143,7 @@ free_client(struct Client *client_p)
     client_p->connection->challenge_operator = NULL;
 
     /*
-     * Clean up extra sockets from listen{} blocks which have been discarded.
+     * Clean up extra sockets from listen {} blocks which have been discarded.
      */
     if (client_p->connection->listener)
     {
@@ -835,8 +835,8 @@ exit_client(struct Client *source_p, const char *comment)
   {
     char splitstr[HOSTLEN + HOSTLEN + 2] = "";
 
-    /* This shouldn't ever happen */
-    assert(source_p->serv && source_p->servptr);
+    assert(source_p->serv);
+    assert(source_p->servptr);
 
     if (ConfigServerHide.hide_servers)
       /*
@@ -866,9 +866,9 @@ exit_client(struct Client *source_p, const char *comment)
                            source_p->connection->recv.bytes >> 10);
       ilog(LOG_TYPE_IRCD, "%s was connected for %d day%s, %2d:%02d:%02d. %llu/%llu sendK/recvK.",
            source_p->name, connected/86400, (connected/86400 == 1) ? "" : "s",
-          (connected % 86400) / 3600, (connected % 3600) / 60, connected % 60,
-          source_p->connection->send.bytes >> 10,
-          source_p->connection->recv.bytes >> 10);
+           (connected % 86400) / 3600, (connected % 3600) / 60, connected % 60,
+           source_p->connection->send.bytes >> 10,
+           source_p->connection->recv.bytes >> 10);
     }
   }
   else if (IsClient(source_p) && !HasFlag(source_p, FLAGS_KILLED))
