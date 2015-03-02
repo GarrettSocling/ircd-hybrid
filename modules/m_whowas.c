@@ -41,6 +41,8 @@
 #include "modules.h"
 
 
+#define WHOWAS_MAX_REPLIES 20  /* Only applies to remote clients */
+
 static void
 do_whowas(struct Client *source_p, const int parc, char *parv[])
 {
@@ -49,8 +51,10 @@ do_whowas(struct Client *source_p, const int parc, char *parv[])
   const dlink_node *node = NULL;
 
   if (parc > 2 && !EmptyString(parv[2]))
-    if ((max = atoi(parv[2])) > 20 && !MyConnect(source_p))
-      max = 20;
+    max = atoi(parv[2]);
+
+  if (!MyConnect(source_p) && (max <= 0 || max > WHOWAS_MAX_REPLIES))
+    max = WHOWAS_MAX_REPLIES;
 
   DLINK_FOREACH(node, WHOWASHASH[strhash(parv[1])].head)
   {
@@ -61,6 +65,12 @@ do_whowas(struct Client *source_p, const int parc, char *parv[])
       sendto_one_numeric(source_p, &me, RPL_WHOWASUSER, temp->name,
                          temp->username, temp->hostname,
                          temp->realname);
+
+      if (HasUMode(source_p, UMODE_OPER))
+        if (strcmp(temp->sockhost, "0"))  /* XXX: TBR */
+          sendto_one_numeric(source_p, &me, RPL_WHOISACTUALLY, temp->name,
+                             temp->username, temp->hostname,
+                             temp->sockhost);
 
       if (!IsDigit(temp->account[0]) && temp->account[0] != '*')
         sendto_one_numeric(source_p, &me, RPL_WHOISACCOUNT, temp->name, temp->account, "was");
