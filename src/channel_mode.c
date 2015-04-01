@@ -595,7 +595,7 @@ chm_ban(struct Client *source_p, struct Channel *chptr, int parc, int *parn,
     return;
 
   mask = nuh_mask[*parn];
-  memcpy(mask, parv[*parn], sizeof(nuh_mask[*parn]));
+  strlcpy(mask, parv[*parn], sizeof(nuh_mask[*parn]));
   ++(*parn);
 
   if (*mask == ':' || (!MyConnect(source_p) && strchr(mask, ' ')))
@@ -664,7 +664,7 @@ chm_except(struct Client *source_p, struct Channel *chptr, int parc, int *parn,
     return;
 
   mask = nuh_mask[*parn];
-  memcpy(mask, parv[*parn], sizeof(nuh_mask[*parn]));
+  strlcpy(mask, parv[*parn], sizeof(nuh_mask[*parn]));
   ++(*parn);
 
   if (*mask == ':' || (!MyConnect(source_p) && strchr(mask, ' ')))
@@ -733,7 +733,7 @@ chm_invex(struct Client *source_p, struct Channel *chptr, int parc, int *parn,
     return;
 
   mask = nuh_mask[*parn];
-  memcpy(mask, parv[*parn], sizeof(nuh_mask[*parn]));
+  strlcpy(mask, parv[*parn], sizeof(nuh_mask[*parn]));
   ++(*parn);
 
   if (*mask == ':' || (!MyConnect(source_p) && strchr(mask, ' ')))
@@ -1419,17 +1419,13 @@ send_mode_changes_server(struct Client *source_p, struct Channel *chptr)
  */
 /* ensure parabuf < MODEBUFLEN -db */
 static void
-send_mode_changes(struct Client *source_p, struct Channel *chptr)
+send_mode_changes_client(struct Client *source_p, struct Channel *chptr)
 {
   int mbl = 0, pbl = 0, arglen = 0, nc = 0, mc = 0;
   int len = 0;
   int dir = MODE_QUERY;
   const char *arg = NULL;
   char *parptr = NULL;
-
-  /* Bail out if we have nothing to do... */
-  if (!mode_count)
-    return;
 
   if (IsServer(source_p))
     mbl = snprintf(modebuf, sizeof(modebuf), ":%s MODE %s ", (IsHidden(source_p) ||
@@ -1504,8 +1500,6 @@ send_mode_changes(struct Client *source_p, struct Channel *chptr)
 
   if (nc)
     sendto_channel_local(0, chptr, "%s %s", modebuf, parabuf);
-
-  send_mode_changes_server(source_p, chptr);
 }
 
 /*
@@ -1555,5 +1549,10 @@ set_channel_mode(struct Client *source_p, struct Channel *chptr,
     }
   }
 
-  send_mode_changes(source_p, chptr);
+  /* Bail out if we have nothing to do... */
+  if (!mode_count)
+    return;
+
+  send_mode_changes_client(source_p, chptr);
+  send_mode_changes_server(source_p, chptr);
 }
