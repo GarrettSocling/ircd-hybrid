@@ -436,7 +436,7 @@ get_mask_hash(const char *text)
  * should always be true (i.e. conf->flags & CONF_FLAGS_NEED_PASSWORD == 0)
  */
 struct MaskItem *
-find_conf_by_address(const char *name, struct irc_ssaddr *addr, unsigned int type,
+find_conf_by_address(const char *name, const struct irc_ssaddr *addr, unsigned int type,
                      int fam, const char *username, const char *password, int do_match)
 {
   unsigned int hprecv = 0;
@@ -709,10 +709,9 @@ clear_out_address_conf(void)
       struct AddressRec *arec = node->data;
 
       /*
-       * We keep the temporary K-lines and destroy the permanent ones,
-       * just to be confusing :) -A1kmm
+       * Destroy the ircd.conf items and keep those that are in the databases
        */
-      if (arec->conf->until || IsConfDatabase(arec->conf))
+      if (IsConfDatabase(arec->conf))
         continue;
 
       dlinkDelete(&arec->node, &atable[i]);

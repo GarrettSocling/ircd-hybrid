@@ -43,7 +43,7 @@
 
 
 static void
-check_dline(struct AddressRec *arec)
+dline_check(struct AddressRec *arec)
 {
   dlink_node *node = NULL, *node_next = NULL;
 
@@ -95,30 +95,45 @@ check_dline(struct AddressRec *arec)
 }
 
 
-/* apply_tdline()
+/* dline_add()
  *
  * inputs	-
  * output	- NONE
- * side effects	- tkline as given is placed
+ * side effects	- dline as given is placed
  */
 static void
-apply_dline(struct Client *source_p, struct MaskItem *conf,
-            time_t tkline_time)
+dline_add(struct Client *source_p, const char *addr,
+          const char *reason, time_t tdline_time)
 {
-  if (tkline_time)
+  char buf[IRCD_BUFSIZE];
+  struct MaskItem *conf;
+
+  if (tdline_time)
+    snprintf(buf, sizeof(buf), "Temporary D-line %d min. - %.*s (%s)",
+             (int)(tdline_time/60), REASONLEN, reason, smalldate(0));
+  else
+    snprintf(buf, sizeof(buf), "%.*s (%s)", REASONLEN, reason, smalldate(0));
+
+  conf = conf_make(CONF_DLINE);
+  conf->host = xstrdup(addr);
+  conf->reason = xstrdup(buf);
+  conf->setat = CurrentTime;
+  SetConfDatabase(conf);
+
+  if (tdline_time)
   {
-    conf->until = CurrentTime + tkline_time;
+    conf->until = CurrentTime + tdline_time;
 
     if (IsClient(source_p))
       sendto_one_notice(source_p, &me, ":Added temporary %d min. D-Line [%s]",
-                        tkline_time/60, conf->host);
+                        tdline_time/60, conf->host);
 
     sendto_realops_flags(UMODE_ALL, L_ALL, SEND_NOTICE,
                          "%s added temporary %d min. D-Line for [%s] [%s]",
-                         get_oper_name(source_p), tkline_time/60,
+                         get_oper_name(source_p), tdline_time/60,
                          conf->host, conf->reason);
     ilog(LOG_TYPE_DLINE, "%s added temporary %d min. D-Line for [%s] [%s]",
-         get_oper_name(source_p), tkline_time/60, conf->host, conf->reason);
+         get_oper_name(source_p), tdline_time/60, conf->host, conf->reason);
   }
   else
   {
@@ -132,9 +147,7 @@ apply_dline(struct Client *source_p, struct MaskItem *conf,
          get_oper_name(source_p), conf->host, conf->reason);
   }
 
-  SetConfDatabase(conf);
-  conf->setat = CurrentTime;
-  check_dline(add_conf_by_address(CONF_DLINE, conf));
+  dline_check(add_conf_by_address(CONF_DLINE, conf));
 }
 
 /* mo_dline()
@@ -155,10 +168,9 @@ mo_dline(struct Client *source_p, int parc, char *parv[])
   const struct Client *target_p = NULL;
   struct irc_ssaddr daddr;
   struct MaskItem *conf = NULL;
-  time_t tkline_time=0;
+  time_t tdline_time = 0;
   int bits = 0, aftype = 0, t = 0;
   char hostip[HOSTIPLEN + 1];
-  char buffer[IRCD_BUFSIZE];
 
   if (!HasOFlag(source_p, OPER_FLAG_DLINE))
   {
@@ -167,13 +179,13 @@ mo_dline(struct Client *source_p, int parc, char *parv[])
   }
 
   if (!parse_aline("DLINE", source_p, parc, parv, AWILD, &dlhost,
-                   NULL, &tkline_time, &target_server, &reason))
+                   NULL, &tdline_time, &target_server, &reason))
     return 0;
 
   if (target_server)
   {
     sendto_match_servs(source_p, target_server, CAP_DLN, "DLINE %s %lu %s :%s",
-                       target_server, (unsigned long)tkline_time,
+                       target_server, (unsigned long)tdline_time,
                        dlhost, reason);
 
     /* Allow ON to apply local kline as well if it matches */
@@ -182,9 +194,9 @@ mo_dline(struct Client *source_p, int parc, char *parv[])
   }
   else
     cluster_a_line(source_p, "DLINE", CAP_DLN, SHARED_DLINE,
-                   "%d %s :%s", tkline_time, dlhost, reason);
+                   "%d %s :%s", tdline_time, dlhost, reason);
 
-  if ((t = parse_netmask(dlhost, NULL, &bits)) == HM_HOST)
+  if ((t = parse_netmask(dlhost, NULL, NULL)) == HM_HOST)
   {
     if ((target_p = find_chasing(source_p, dlhost)) == NULL)
       return 0;  /* find_chasing sends ERR_NOSUCHNICK */
@@ -205,11 +217,9 @@ mo_dline(struct Client *source_p, int parc, char *parv[])
                 target_p->connection->ip.ss_len, hostip,
                 sizeof(hostip), NULL, 0, NI_NUMERICHOST);
     dlhost = hostip;
-    t = parse_netmask(dlhost, NULL, &bits);
-    assert(t == HM_IPV4 || t == HM_IPV6);
   }
 
-  switch (t)
+  switch (parse_netmask(dlhost, &daddr, &bits))
   {
     case HM_IPV4:
       if ((unsigned int)bits < ConfigGeneral.dline_min_cidr)
@@ -235,8 +245,6 @@ mo_dline(struct Client *source_p, int parc, char *parv[])
      return 0;
   }
 
-  parse_netmask(dlhost, &daddr, NULL);
-
   if ((conf = find_conf_by_address(NULL, &daddr, CONF_DLINE, aftype, NULL, NULL, 1)))
   {
     sendto_one_notice(source_p, &me, ":[%s] already D-lined by [%s] - %s",
@@ -244,42 +252,31 @@ mo_dline(struct Client *source_p, int parc, char *parv[])
     return 0;
   }
 
-  conf = conf_make(CONF_DLINE);
-  conf->host = xstrdup(dlhost);
-
-  if (tkline_time)
-    snprintf(buffer, sizeof(buffer), "Temporary D-line %d min. - %.*s (%s)",
-             (int)(tkline_time/60), REASONLEN, reason, smalldate(0));
-  else
-    snprintf(buffer, sizeof(buffer), "%.*s (%s)", REASONLEN, reason, smalldate(0));
-
-  conf->reason = xstrdup(buffer);
-  apply_dline(source_p, conf, tkline_time);
+  dline_add(source_p, dlhost, reason, tdline_time);
   return 0;
 }
 
 static int
 ms_dline(struct Client *source_p, int parc, char *parv[])
 {
-  char *dlhost, *reason;
+  const char *dlhost, *reason;
   struct irc_ssaddr daddr;
   struct MaskItem *conf = NULL;
-  time_t tkline_time=0;
-  int bits = 0, aftype = 0, t = 0;
-  char buffer[IRCD_BUFSIZE];
+  time_t tdline_time=0;
+  int bits = 0, aftype = 0;
 
   if (parc != 5 || EmptyString(parv[4]))
     return 0;
 
   /* parv[0]  parv[1]        parv[2]      parv[3]  parv[4] */
-  /* command  target_server  tkline_time  host     reason  */
+  /* command  target_server  tdline_time  host     reason  */
   sendto_match_servs(source_p, parv[1], CAP_DLN, "DLINE %s %s %s :%s",
                      parv[1], parv[2], parv[3], parv[4]);
 
   if (match(parv[1], me.name))
     return 0;
 
-  tkline_time = valid_tkline(parv[2], TK_SECONDS);
+  tdline_time = valid_tkline(parv[2], TK_SECONDS);
   dlhost = parv[3];
   reason = parv[4];
 
@@ -288,9 +285,7 @@ ms_dline(struct Client *source_p, int parc, char *parv[])
                               source_p->username, source_p->host,
                               SHARED_DLINE))
   {
-    t = parse_netmask(dlhost, &daddr, &bits);
-
-    switch (t)
+    switch (parse_netmask(dlhost, &daddr, &bits))
     {
       case HM_IPV4:
         if ((unsigned int)bits < ConfigGeneral.dline_min_cidr)
@@ -326,17 +321,7 @@ ms_dline(struct Client *source_p, int parc, char *parv[])
       return 0;
     }
 
-    conf = conf_make(CONF_DLINE);
-    conf->host = xstrdup(dlhost);
-
-    if (tkline_time)
-      snprintf(buffer, sizeof(buffer), "Temporary D-line %d min. - %.*s (%s)",
-               (int)(tkline_time/60), REASONLEN, reason, smalldate(0));
-    else
-      snprintf(buffer, sizeof(buffer), "%.*s (%s)", REASONLEN, reason, smalldate(0));
-
-    conf->reason = xstrdup(buffer);
-    apply_dline(source_p, conf, tkline_time);
+    dline_add(source_p, dlhost, reason, tdline_time);
   }
 
   return 0;

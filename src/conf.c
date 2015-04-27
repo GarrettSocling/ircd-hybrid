@@ -1186,21 +1186,14 @@ clear_out_old_conf(void)
       struct MaskItem *conf = node->data;
 
       conf->active = 0;
-      dlinkDelete(&conf->node, *iterator);
 
-      /* XXX This is less than pretty */
-      if (conf->type == CONF_SERVER || conf->type == CONF_OPER)
+      if (!IsConfDatabase(conf))
       {
+        dlinkDelete(&conf->node, *iterator);
+
         if (!conf->ref_count)
           conf_free(conf);
       }
-      else if (conf->type == CONF_XLINE)
-      {
-        if (!conf->until)
-          conf_free(conf);
-      }
-      else
-        conf_free(conf);
     }
   }
 
@@ -1639,7 +1632,7 @@ parse_aline(const char *cmd, struct Client *source_p,
             char **target_server, char **reason)
 {
   int found_tkline_time=0;
-  static char def_reason[] = CONF_NOREASON;
+  static char default_reason[] = CONF_NOREASON;
   static char user[USERLEN*4+1];
   static char host[HOSTLEN*4+1];
 
@@ -1739,32 +1732,10 @@ parse_aline(const char *cmd, struct Client *source_p,
   if (reason)
   {
     if (parc && !EmptyString(*parv))
-    {
       *reason = *parv;
-
-      if (!valid_comment(source_p, *reason, 1))
-        return 0;
-    }
     else
-      *reason = def_reason;
+      *reason = default_reason;
   }
-
-  return 1;
-}
-
-/* valid_comment()
- *
- * inputs	- pointer to client
- *              - pointer to comment
- * output       - 0 if no valid comment,
- *              - 1 if valid
- * side effects - truncates reason where necessary
- */
-int
-valid_comment(struct Client *source_p, char *comment, int warn)
-{
-  if (strlen(comment) > REASONLEN)
-    comment[REASONLEN-1] = '\0';
 
   return 1;
 }
