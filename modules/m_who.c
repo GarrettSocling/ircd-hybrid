@@ -263,7 +263,7 @@ m_who(struct Client *source_p, int parc, char *parv[])
   /* See if mask is there, collapse it or return if not there */
   if (EmptyString(mask))
   {
-    who_global(source_p, mask, server_oper);
+    who_global(source_p, NULL, server_oper);
     sendto_one_numeric(source_p, &me, RPL_ENDOFWHO, "*");
     return 0;
   }
@@ -334,8 +334,13 @@ m_who(struct Client *source_p, int parc, char *parv[])
 
 static struct Message who_msgtab =
 {
-  "WHO", NULL, 0, 0, 2, MAXPARA, MFLG_SLOW, 0,
-  { m_unregistered, m_who, m_ignore, m_ignore, m_who, m_ignore }
+  .cmd = "WHO",
+  .args_max = MAXPARA,
+  .handlers[UNREGISTERED_HANDLER] = m_unregistered,
+  .handlers[CLIENT_HANDLER] = m_who,
+  .handlers[SERVER_HANDLER] = m_ignore,
+  .handlers[ENCAP_HANDLER] = m_ignore,
+  .handlers[OPER_HANDLER] = m_who
 };
 
 static void
