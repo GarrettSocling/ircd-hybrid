@@ -1,5 +1,4 @@
-# Inspired by work Copyright (C) 2006 Luca Filipozzi
-# vim: set fdm=marker ts=2 sw=2 et:
+dnl Process this file with autoconf to produce a configure script.
 
 AC_REVISION([$Id$])
 
@@ -52,20 +51,8 @@ AC_CHECK_HEADERS_ONCE(crypt.h        \
 
 AC_SEARCH_LIBS(crypt, crypt)
 
-AC_DEFINE([NICKNAMEHISTORYLENGTH], 32768, [Size of the WHOWAS array.])
-AC_DEFINE([MP_CHUNK_SIZE_CHANNEL], 1024*1024, [Size of the channel mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_MEMBER], 2048*1024, [Size of the channel-member mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_BAN], 1024*1024, [Size of the ban mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_CLIENT], 1024*1024, [Size of the client mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_CONNECTION], 512*1024, [Size of the connection mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_DNODE], 32*1024, [Size of the dlink_node mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_DBUF], 512*1024, [Size of the dbuf mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_AUTH], 128*1024, [Size of the auth mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_DNS], 64*1024, [Size of the dns mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_WATCH], 8*1024, [Size of the watch mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_NAMEHOST], 64*1024, [Size of the namehost mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_USERHOST], 128*1024, [Size of the userhost mempool chunk.])
-AC_DEFINE([MP_CHUNK_SIZE_IP_ENTRY], 128*1024, [Size of the ip_entry mempool chunk.])
+# Define various chunk sizes for the pooling allocator
+AX_MEMPOOL_CHUNKSIZES
 
 # Argument processing.
 AX_ARG_IOLOOP_MECHANISM
