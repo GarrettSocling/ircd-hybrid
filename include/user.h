@@ -38,13 +38,13 @@ struct user_modes
 extern const struct user_modes *umode_map[];
 extern const struct user_modes  umode_tab[];
 
-extern void user_usermodes_init(void);
+extern void user_modes_init(void);
 extern void send_umode(struct Client *, struct Client *,
                        unsigned int, char *);
 extern void send_umode_out(struct Client *, unsigned int);
 extern void show_lusers(struct Client *);
 extern void show_isupport(struct Client *);
-extern void oper_up(struct Client *);
+extern void user_oper_up(struct Client *);
 
 extern void register_local_user(struct Client *);
 extern void register_remote_user(struct Client *);
