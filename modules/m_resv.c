@@ -48,31 +48,29 @@
  * side effects	- parse resv, create if valid
  */
 static void
-parse_resv(struct Client *source_p, char *name, int tkline_time, char *reason)
+parse_resv(struct Client *source_p, const char *name, int tkline_time, const char *reason)
 {
   const char *type = "channel";
   struct MaskItem *conf = NULL;
 
   if (!IsChanPrefix(*name))
-  {
     type = "nick";
 
-    if (!valid_wild_card_simple(name))
-    {
-      if (IsClient(source_p))
-        sendto_one_notice(source_p, &me, ":Please include at least %u non-wildcard characters with the resv",
-                          ConfigGeneral.min_nonwildcard_simple);
+  if (!HasFlag(source_p, FLAGS_SERVICE) && !HasUMode(source_p, UMODE_ADMIN) && has_wildcards(name))
+  {
+    if (IsClient(source_p))
+      sendto_one_notice(source_p, &me, ":You must be an admin to perform a wildcard RESV");
 
-      return;
-    }
+    return;
+  }
 
-    if (!HasUMode(source_p, UMODE_ADMIN) && has_wildcards(name))
-    {
-      if (IsClient(source_p))
-        sendto_one_notice(source_p, &me, ":You must be an admin to perform a wildcard RESV");
+  if (!valid_wild_card_simple(name + !!IsChanPrefix(*name)))
+  {
+    if (IsClient(source_p))
+      sendto_one_notice(source_p, &me, ":Please include at least %u non-wildcard characters with the resv",
+                        ConfigGeneral.min_nonwildcard_simple);
 
-      return;
-    }
+    return;
   }
 
   if ((conf = create_resv(name, reason, NULL)) == NULL)
@@ -89,14 +87,13 @@ parse_resv(struct Client *source_p, char *name, int tkline_time, char *reason)
   if (tkline_time)
   {
     if (IsClient(source_p))
-      sendto_one_notice(source_p, &me, ":A %d minute %s RESV has been placed on %s: %s",
-                        tkline_time/60, (MyClient(source_p) ? "local" : "remote"), type, name);
+      sendto_one_notice(source_p, &me, ":A %d minute RESV has been placed on %s: %s",
+                        tkline_time/60, type, name);
 
     sendto_realops_flags(UMODE_SERVNOTICE, L_ALL, SEND_NOTICE,
-                         "%s has placed a %d minute %s RESV on %s: %s [%s]",
+                         "%s has placed a %d minute RESV on %s: %s [%s]",
                          get_oper_name(source_p),
-                         tkline_time/60,
-                         (MyClient(source_p) ? "local" : "remote"), type,
+                         tkline_time/60, type,
                          conf->name, conf->reason);
     ilog(LOG_TYPE_RESV, "%s added temporary %d min. RESV for [%s] [%s]",
          get_oper_name(source_p), (int)tkline_time/60,
@@ -106,13 +103,12 @@ parse_resv(struct Client *source_p, char *name, int tkline_time, char *reason)
   else
   {
     if (IsClient(source_p))
-      sendto_one_notice(source_p, &me, ":A %s RESV has been placed on %s: %s",
-                        (MyClient(source_p) ? "local" : "remote"), type, name);
+      sendto_one_notice(source_p, &me, ":A RESV has been placed on %s: %s",
+                        type, name);
 
     sendto_realops_flags(UMODE_SERVNOTICE, L_ALL, SEND_NOTICE,
-                         "%s has placed a %s RESV on %s: %s [%s]",
-                         get_oper_name(source_p),
-                         (MyClient(source_p) ? "local" : "remote"), type,
+                         "%s has placed a RESV on %s: %s [%s]",
+                         get_oper_name(source_p), type,
                          conf->name, conf->reason);
     ilog(LOG_TYPE_RESV, "%s added RESV for [%s] [%s]",
          get_oper_name(source_p), conf->name, conf->reason);
