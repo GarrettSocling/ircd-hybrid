@@ -33,7 +33,6 @@
 #include "ircd.h"
 #include "ircd_defs.h"
 #include "s_bsd.h"
-#include "numeric.h"
 #include "conf.h"
 #include "send.h"
 #include "memory.h"
@@ -44,8 +43,14 @@
 
 static dlink_list listener_list;
 
+const dlink_list *
+listener_get_list(void)
+{
+  return &listener_list;
+}
+
 static struct Listener *
-make_listener(const int port, const struct irc_ssaddr *addr)
+listener_make(const int port, const struct irc_ssaddr *addr)
 {
   struct Listener *listener = MyCalloc(sizeof(struct Listener));
 
@@ -55,70 +60,25 @@ make_listener(const int port, const struct irc_ssaddr *addr)
   return listener;
 }
 
-void
-free_listener(struct Listener *listener)
+static void
+listener_free(struct Listener *listener)
 {
   dlinkDelete(&listener->node, &listener_list);
   MyFree(listener);
 }
 
 /*
- * get_listener_name - return displayable listener name and port
+ * listener_get_name - return displayable listener name and port
  * returns "host.foo.org/6667" for a given listener
  */
 const char *
-get_listener_name(const struct Listener *const listener)
+listener_get_name(const struct Listener *const listener)
 {
   static char buf[HOSTLEN + HOSTIPLEN + PORTNAMELEN + 4];  /* +4 for [,/,],\0 */
 
   snprintf(buf, sizeof(buf), "%s[%s/%u]", me.name,
            listener->name, listener->port);
   return buf;
-}
-
-/* show_ports()
- *
- * inputs       - pointer to client to show ports to
- * output       - none
- * side effects - send port listing to a client
- */
-void
-show_ports(struct Client *source_p)
-{
-  char buf[IRCD_BUFSIZE] = "";
-  char *p = NULL;
-  const dlink_node *node = NULL;
-
-  DLINK_FOREACH(node, listener_list.head)
-  {
-    const struct Listener *listener = node->data;
-    p = buf;
-
-    if (listener->flags & LISTENER_HIDDEN)
-    {
-      if (!HasUMode(source_p, UMODE_ADMIN))
-        continue;
-      *p++ = 'H';
-    }
-
-    if (listener->flags & LISTENER_SERVER)
-      *p++ = 'S';
-    if (listener->flags & LISTENER_SSL)
-      *p++ = 's';
-    *p = '\0';
-
-
-    if (HasUMode(source_p, UMODE_ADMIN) &&
-        (MyClient(source_p) || !ConfigServerHide.hide_server_ips))
-      sendto_one_numeric(source_p, &me, RPL_STATSPLINE, 'P', listener->port,
-                         listener->name,
-                         listener->ref_count, buf,
-                         listener->active ? "active" : "disabled");
-    else
-      sendto_one_numeric(source_p, &me, RPL_STATSPLINE, 'P', listener->port,
-                         me.name, listener->ref_count, buf,
-                         listener->active ? "active" : "disabled");
-  }
 }
 
 static void
@@ -151,7 +111,7 @@ listener_accept_connection(fde_t *pfd, void *data)
     {
       ++ServerStats.is_ref;
       sendto_realops_flags_ratelimited(&rate, "All connections in use. (%s)",
-                                       get_listener_name(listener));
+                                       listener_get_name(listener));
 
       if (!(listener->flags & LISTENER_SSL))
         send(fd, ALLINUSE_WARNING, sizeof(ALLINUSE_WARNING) - 1, 0);
@@ -227,14 +187,14 @@ inetport(struct Listener *listener)
                 "Listener socket") == -1)
   {
     report_error(L_ALL, "opening listener socket %s:%s",
-                 get_listener_name(listener), errno);
+                 listener_get_name(listener), errno);
     return 0;
   }
 
   if (setsockopt(listener->fd.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
   {
     report_error(L_ALL, "setting SO_REUSEADDR for listener %s:%s",
-                 get_listener_name(listener), errno);
+                 listener_get_name(listener), errno);
     fd_close(&listener->fd);
     return 0;
   }
@@ -248,7 +208,7 @@ inetport(struct Listener *listener)
   if (bind(listener->fd.fd, (struct sockaddr *)&lsin, lsin.ss_len))
   {
     report_error(L_ALL, "binding listener socket %s:%s",
-                 get_listener_name(listener), errno);
+                 listener_get_name(listener), errno);
     fd_close(&listener->fd);
     return 0;
   }
@@ -256,7 +216,7 @@ inetport(struct Listener *listener)
   if (listen(listener->fd.fd, HYBRID_SOMAXCONN))
   {
     report_error(L_ALL, "listen failed for %s:%s",
-                 get_listener_name(listener), errno);
+                 listener_get_name(listener), errno);
     fd_close(&listener->fd);
     return 0;
   }
@@ -268,7 +228,7 @@ inetport(struct Listener *listener)
 }
 
 static struct Listener *
-find_listener(int port, struct irc_ssaddr *addr)
+listener_find(int port, struct irc_ssaddr *addr)
 {
   dlink_node *node;
   struct Listener *listener    = NULL;
@@ -296,7 +256,7 @@ find_listener(int port, struct irc_ssaddr *addr)
  * close_listener - close a single listener
  */
 static void
-close_listener(struct Listener *listener)
+listener_close(struct Listener *listener)
 {
   if (listener->fd.flags.open)
     fd_close(&listener->fd);
@@ -306,20 +266,20 @@ close_listener(struct Listener *listener)
   if (listener->ref_count)
     return;
 
-  free_listener(listener);
+  listener_free(listener);
 }
 
 /*
- * close_listeners - close and free all listeners that are not being used
+ * listener_close_marked - close and free all listeners that are not being used
  */
 void
-close_listeners(void)
+listener_close_marked(void)
 {
   dlink_node *node = NULL, *node_next = NULL;
 
   /* close all 'extra' listening ports we have */
   DLINK_FOREACH_SAFE(node, node_next, listener_list.head)
-    close_listener(node->data);
+    listener_close(node->data);
 }
 
 void
@@ -328,17 +288,17 @@ listener_release(struct Listener *listener)
   assert(listener->ref_count > 0);
 
   if (--listener->ref_count == 0 && !listener->active)
-    close_listener(listener);
+    listener_close(listener);
 }
 
 /*
- * add_listener- create a new listener
+ * listener_add- create a new listener
  * port - the port number to listen on
  * vhost_ip - if non-null must contain a valid IP address string in
  * the format "255.255.255.255"
  */
 void
-add_listener(int port, const char *vhost_ip, unsigned int flags)
+listener_add(int port, const char *vhost_ip, unsigned int flags)
 {
   struct Listener *listener;
   struct irc_ssaddr vaddr;
@@ -402,12 +362,12 @@ add_listener(int port, const char *vhost_ip, unsigned int flags)
   {
     /* add the ipv4 listener if we havent already */
     pass = 1;
-    add_listener(port, "0.0.0.0", flags);
+    listener_add(port, "0.0.0.0", flags);
   }
 
   pass = 0;
 
-  if ((listener = find_listener(port, &vaddr)))
+  if ((listener = listener_find(port, &vaddr)))
   {
     listener->flags = flags;
 
@@ -416,7 +376,7 @@ add_listener(int port, const char *vhost_ip, unsigned int flags)
   }
   else
   {
-    listener = make_listener(port, &vaddr);
+    listener = listener_make(port, &vaddr);
     dlinkAdd(listener, &listener->node, &listener_list);
     listener->flags = flags;
   }
@@ -424,5 +384,5 @@ add_listener(int port, const char *vhost_ip, unsigned int flags)
   if (inetport(listener))
     listener->active = 1;
   else
-    close_listener(listener);
+    listener_close(listener);
 }

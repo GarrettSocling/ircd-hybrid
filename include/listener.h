@@ -30,8 +30,6 @@
 #include "ircd_defs.h"
 #include "fdlist.h"
 
-struct Client;
-
 enum
 {
   LISTENER_SSL    = 1 << 0,
@@ -51,10 +49,9 @@ struct Listener
   unsigned int flags;        /**< Listener flags (ssl, hidden, server) */
 };
 
-extern void add_listener(int, const char *, unsigned int);
+extern const dlink_list *listener_get_list(void);
+extern void listener_add(int, const char *, unsigned int);
 extern void listener_release(struct Listener *);
-extern void close_listeners(void);
-extern const char *get_listener_name(const struct Listener *const);
-extern void show_ports(struct Client *);
-extern void free_listener(struct Listener *);
+extern void listener_close_marked(void);
+extern const char *listener_get_name(const struct Listener *const);
 #endif
