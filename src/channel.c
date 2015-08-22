@@ -47,13 +47,6 @@
 dlink_list channel_list;
 mp_pool_t *ban_pool;    /*! \todo ban_pool shouldn't be a global var */
 
-struct event splitmode_event =
-{
-  .name = "check_splitmode",
-  .handler = check_splitmode,
-  .when = 5
-};
-
 static mp_pool_t *member_pool, *channel_pool;
 
 
@@ -149,18 +142,18 @@ remove_user_from_channel(struct Membership *member)
   mp_pool_release(member);
 
   if (chptr->members.head == NULL)
-    destroy_channel(chptr);
+    channel_free(chptr);
 }
 
-/* send_members()
+/* channel_send_members()
  *
  * inputs       -
  * output       - NONE
  * side effects -
  */
 static void
-send_members(struct Client *client_p, const struct Channel *chptr,
-             char *modebuf, char *parabuf)
+channel_send_members(struct Client *client_p, const struct Channel *chptr,
+                     char *modebuf, char *parabuf)
 {
   char buf[IRCD_BUFSIZE] = "";
   const dlink_node *node = NULL;
@@ -222,8 +215,8 @@ send_members(struct Client *client_p, const struct Channel *chptr,
  * \param flag     Char flag flagging type of mode. Currently this can be 'b', e' or 'I'
  */
 static void
-send_mode_list(struct Client *client_p, const struct Channel *chptr,
-               const dlink_list *list, const char flag)
+channel_send_mask_list(struct Client *client_p, const struct Channel *chptr,
+                       const dlink_list *list, const char flag)
 {
   const dlink_node *node = NULL;
   char mbuf[IRCD_BUFSIZE] = "";
@@ -269,17 +262,17 @@ send_mode_list(struct Client *client_p, const struct Channel *chptr,
  * \param chptr    Pointer to channel pointer
  */
 void
-send_channel_modes(struct Client *client_p, struct Channel *chptr)
+channel_send_modes(struct Client *client_p, struct Channel *chptr)
 {
   char modebuf[MODEBUFLEN] = "";
   char parabuf[MODEBUFLEN] = "";
 
   channel_modes(chptr, client_p, modebuf, parabuf);
-  send_members(client_p, chptr, modebuf, parabuf);
+  channel_send_members(client_p, chptr, modebuf, parabuf);
 
-  send_mode_list(client_p, chptr, &chptr->banlist, 'b');
-  send_mode_list(client_p, chptr, &chptr->exceptlist, 'e');
-  send_mode_list(client_p, chptr, &chptr->invexlist, 'I');
+  channel_send_mask_list(client_p, chptr, &chptr->banlist, 'b');
+  channel_send_mask_list(client_p, chptr, &chptr->exceptlist, 'e');
+  channel_send_mask_list(client_p, chptr, &chptr->invexlist, 'I');
 }
 
 /*! \brief Check channel name for invalid characters
@@ -288,7 +281,7 @@ send_channel_modes(struct Client *client_p, struct Channel *chptr)
  * \return 0 if invalid, 1 otherwise
  */
 int
-check_channel_name(const char *name, const int local)
+channel_check_name(const char *name, const int local)
 {
   const char *p = name;
 
@@ -320,14 +313,14 @@ remove_ban(struct Ban *ban, dlink_list *list)
   mp_pool_release(ban);
 }
 
-/* free_channel_list()
+/* channel_free_mask_list()
  *
  * inputs       - pointer to dlink_list
  * output       - NONE
  * side effects -
  */
-void
-free_channel_list(dlink_list *list)
+static void
+channel_free_mask_list(dlink_list *list)
 {
   dlink_node *node = NULL, *node_next = NULL;
 
@@ -341,7 +334,7 @@ free_channel_list(dlink_list *list)
  * \return Channel block
  */
 struct Channel *
-make_channel(const char *name)
+channel_make(const char *name)
 {
   struct Channel *chptr = NULL;
 
@@ -365,14 +358,14 @@ make_channel(const char *name)
  * \param chptr Channel pointer
  */
 void
-destroy_channel(struct Channel *chptr)
+channel_free(struct Channel *chptr)
 {
   clear_invites_channel(chptr);
 
   /* Free ban/exception/invex lists */
-  free_channel_list(&chptr->banlist);
-  free_channel_list(&chptr->exceptlist);
-  free_channel_list(&chptr->invexlist);
+  channel_free_mask_list(&chptr->banlist);
+  channel_free_mask_list(&chptr->exceptlist);
+  channel_free_mask_list(&chptr->invexlist);
 
   dlinkDelete(&chptr->node, &channel_list);
   hash_del_channel(chptr);
@@ -866,37 +859,6 @@ check_spambot_warning(struct Client *source_p, const char *name)
   }
 }
 
-/*! \brief Compares usercount and servercount against their split
- *         values and adjusts splitmode accordingly
- * \param unused Unused address pointer
- */
-void
-check_splitmode(void *unused)
-{
-  if (splitchecking && (ConfigChannel.no_join_on_split ||
-                        ConfigChannel.no_create_on_split))
-  {
-    const unsigned int server = dlink_list_length(&global_server_list);
-
-    if (!splitmode && ((server < split_servers) || (Count.total < split_users)))
-    {
-      splitmode = 1;
-
-      sendto_realops_flags(UMODE_SERVNOTICE, L_ALL, SEND_NOTICE,
-                           "Network split, activating splitmode");
-      event_add(&splitmode_event, NULL);
-    }
-    else if (splitmode && (server >= split_servers) && (Count.total >= split_users))
-    {
-      splitmode = 0;
-
-      sendto_realops_flags(UMODE_SERVNOTICE, L_ALL, SEND_NOTICE,
-                           "Network rejoined, deactivating splitmode");
-      event_delete(&splitmode_event);
-    }
-  }
-}
-
 /*! \brief Sets the channel topic for a certain channel
  * \param chptr      Pointer to struct Channel
  * \param topic      The topic string
@@ -1009,7 +971,7 @@ channel_do_join(struct Client *source_p, char *channel, char *key_list)
     if (key && *key == '\0')
       key = NULL;
 
-    if (!check_channel_name(chan, 1))
+    if (!channel_check_name(chan, 1))
     {
       sendto_one_numeric(source_p, &me, ERR_BADCHANNAME, chan);
       continue;
@@ -1039,13 +1001,6 @@ channel_do_join(struct Client *source_p, char *channel, char *key_list)
       if (IsMember(source_p, chptr))
         continue;
 
-      if (splitmode && !HasUMode(source_p, UMODE_OPER) &&
-          ConfigChannel.no_join_on_split)
-      {
-        sendto_one_numeric(source_p, &me, ERR_UNAVAILRESOURCE, chptr->name);
-        continue;
-      }
-
       /*
        * can_join checks for +i key, bans.
        */
@@ -1066,15 +1021,8 @@ channel_do_join(struct Client *source_p, char *channel, char *key_list)
     }
     else
     {
-      if (splitmode && !HasUMode(source_p, UMODE_OPER) &&
-          (ConfigChannel.no_create_on_split || ConfigChannel.no_join_on_split))
-      {
-        sendto_one_numeric(source_p, &me, ERR_UNAVAILRESOURCE, chan);
-        continue;
-      }
-
       flags = CHFL_CHANOP;
-      chptr = make_channel(chan);
+      chptr = channel_make(chan);
     }
 
     if (!HasUMode(source_p, UMODE_OPER))
