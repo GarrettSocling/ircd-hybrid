@@ -32,9 +32,9 @@
 
 static const char *const months[] =
 {
-  "January",   "February", "March",   "April",
-  "May",       "June",     "July",    "August",
-  "September", "October",  "November","December"
+  "January",   "February", "March",    "April",
+  "May",       "June",     "July",     "August",
+  "September", "October",  "November", "December"
 };
 
 static const char *const weekdays[] =
@@ -47,6 +47,7 @@ const char *
 date(time_t lclock)
 {
   static char buf[80], plus;
+  static time_t lclock_last;
   struct tm *lt, *gm;
   struct tm gmbuf;
   int minswest;
@@ -54,6 +55,10 @@ date(time_t lclock)
   if (!lclock)
     lclock = CurrentTime;
 
+  if (lclock_last == lclock)
+    return buf;
+
+  lclock_last = lclock;
   gm = gmtime(&lclock);
   memcpy(&gmbuf, gm, sizeof(gmbuf));
   gm = &gmbuf;
@@ -79,30 +84,26 @@ date(time_t lclock)
     minswest = -minswest;
 
   snprintf(buf, sizeof(buf), "%s %s %d %d -- %02u:%02u:%02u %c%02u:%02u",
-           weekdays[lt->tm_wday], months[lt->tm_mon],lt->tm_mday,
+           weekdays[lt->tm_wday], months[lt->tm_mon], lt->tm_mday,
            lt->tm_year + 1900, lt->tm_hour, lt->tm_min, lt->tm_sec,
            plus, minswest/60, minswest%60);
   return buf;
 }
 
 const char *
-smalldate(time_t lclock)
+date_iso8601(time_t lclock)
 {
   static char buf[MAX_DATE_STRING];
-  struct tm *lt, *gm;
-  struct tm gmbuf;
+  static time_t lclock_last;
 
   if (!lclock)
     lclock = CurrentTime;
 
-  gm = gmtime(&lclock);
-  memcpy(&gmbuf, gm, sizeof(gmbuf));
-  gm = &gmbuf;
-  lt = localtime(&lclock);
-
-  snprintf(buf, sizeof(buf), "%d/%d/%d %02d.%02d",
-           lt->tm_year + 1900, lt->tm_mon + 1, lt->tm_mday,
-           lt->tm_hour, lt->tm_min);
+  if (lclock_last != lclock)
+  {
+    lclock_last = lclock;
+    strftime(buf, sizeof(buf), "%FT%H:%M:%S%z", localtime(&lclock));
+  }
 
   return buf;
 }
@@ -120,12 +121,20 @@ smalldate(time_t lclock)
  * Thu Nov 24 18:22:48 1986
  */
 const char *
-myctime(time_t value)
+myctime(time_t lclock)
 {
-  static char buf[32];
+  static char buf[MAX_DATE_STRING];
+  static time_t lclock_last;
   char *p;
 
-  strlcpy(buf, ctime(&value), sizeof(buf));
+  if (!lclock)
+    lclock = CurrentTime;
+
+  if (lclock_last == lclock)
+    return buf;
+
+  lclock_last = lclock;
+  strlcpy(buf, ctime(&lclock), sizeof(buf));
 
   if ((p = strchr(buf, '\n')))
     *p = '\0';
