@@ -46,7 +46,7 @@
 #include "auth.h"
 #include "s_bsd.h"
 #include "log.h"
-#include "server.h"      /* try_connections */
+#include "server.h"
 #include "send.h"
 #include "whowas.h"
 #include "modules.h"
@@ -146,30 +146,30 @@ make_daemon(void)
   setsid();
 }
 
-static int printVersion = 0;
+static int printVersion;
 
 static struct lgetopt myopts[] =
 {
-  {"configfile", &ConfigGeneral.configfile,
-   STRING, "File to use for ircd.conf"},
-  {"klinefile",  &ConfigGeneral.klinefile,
-   STRING, "File to use for kline database"},
-  {"dlinefile",  &ConfigGeneral.dlinefile,
-   STRING, "File to use for dline database"},
-  {"xlinefile",  &ConfigGeneral.xlinefile,
-   STRING, "File to use for xline database"},
-  {"resvfile",  &ConfigGeneral.resvfile,
-   STRING, "File to use for resv database"},
-  {"logfile",    &logFileName,
-   STRING, "File to use for ircd.log"},
-  {"pidfile",    &pidFileName,
-   STRING, "File to use for process ID"},
-  {"foreground", &server_state.foreground,
-   YESNO, "Run in foreground (don't detach)"},
-  {"version",    &printVersion,
-   YESNO, "Print version and exit"},
-  {"help", NULL, USAGE, "Print this text"},
-  {NULL, NULL, STRING, NULL},
+  { "configfile", &ConfigGeneral.configfile,
+   STRING, "File to use for ircd.conf" },
+  { "klinefile",  &ConfigGeneral.klinefile,
+   STRING, "File to use for kline database" },
+  { "dlinefile",  &ConfigGeneral.dlinefile,
+   STRING, "File to use for dline database" },
+  { "xlinefile",  &ConfigGeneral.xlinefile,
+   STRING, "File to use for xline database" },
+  { "resvfile",   &ConfigGeneral.resvfile,
+   STRING, "File to use for resv database" },
+  { "logfile",    &logFileName,
+   STRING, "File to use for ircd.log" },
+  { "pidfile",    &pidFileName,
+   STRING, "File to use for process ID" },
+  { "foreground", &server_state.foreground,
+   YESNO, "Run in foreground (don't detach)" },
+  { "version",    &printVersion,
+   YESNO, "Print version and exit" },
+  { "help", NULL, USAGE, "Print this text" },
+  { NULL, NULL, STRING, NULL },
 };
 
 void
@@ -179,12 +179,11 @@ set_time(void)
 
   if (gettimeofday(&newtime, NULL) == -1)
   {
-    ilog(LOG_TYPE_IRCD, "Clock Failure (%s), TS can be corrupted",
-         strerror(errno));
-    sendto_realops_flags(UMODE_SERVNOTICE, L_ALL, SEND_NOTICE,
-                         "Clock Failure (%s), TS can be corrupted",
-                         strerror(errno));
-    server_die("Clock Failure", SERVER_SHUTDOWN);
+    char buf[IRCD_BUFSIZE];
+
+    snprintf(buf, sizeof(buf), "Clock failure, TS can be corrupted: %s",
+             strerror(errno));
+    server_die(buf, SERVER_SHUTDOWN);
   }
 
   if (newtime.tv_sec < CurrentTime)
@@ -198,7 +197,7 @@ set_time(void)
     event_set_back_events(CurrentTime - newtime.tv_sec);
   }
 
-  SystemTime.tv_sec  = newtime.tv_sec;
+  SystemTime.tv_sec = newtime.tv_sec;
   SystemTime.tv_usec = newtime.tv_usec;
 }
 
@@ -286,12 +285,12 @@ write_pidfile(const char *filename)
 
   if ((fb = fopen(filename, "w")))
   {
-    char buff[IRCD_BUFSIZE];
+    char buf[IRCD_BUFSIZE];
     unsigned int pid = (unsigned int)getpid();
 
-    snprintf(buff, sizeof(buff), "%u\n", pid);
+    snprintf(buf, sizeof(buf), "%u\n", pid);
 
-    if (fputs(buff, fb) == -1)
+    if (fputs(buf, fb) == -1)
       ilog(LOG_TYPE_IRCD, "Error writing to pid file %s: %s",
            filename, strerror(errno));
 
@@ -314,19 +313,18 @@ static void
 check_pidfile(const char *filename)
 {
   FILE *fb;
-  char buff[IRCD_BUFSIZE];
-  pid_t pidfromfile;
+  char buf[IRCD_BUFSIZE];
 
   if ((fb = fopen(filename, "r")))
   {
-    if (!fgets(buff, 20, fb))
+    if (!fgets(buf, 20, fb))
       ilog(LOG_TYPE_IRCD, "Error reading from pid file %s: %s",
            filename, strerror(errno));
     else
     {
-      pidfromfile = atoi(buff);
+      pid_t pid = atoi(buf);
 
-      if (!kill(pidfromfile, 0))
+      if (!kill(pid, 0))
       {
         /* log(L_ERROR, "Server is already running"); */
         printf("ircd: daemon is already running\n");
@@ -371,7 +369,7 @@ always_accept_verify_cb(int preverify_ok, X509_STORE_CTX *x509_ctx)
 }
 #endif
 
-/* init_ssl()
+/* ssl_init()
  *
  * inputs       - nothing
  * output       - nothing
@@ -532,7 +530,7 @@ main(int argc, char *argv[])
 
   strlcpy(me.name, ConfigServerInfo.name, sizeof(me.name));
 
-  /* serverinfo{} description must exist.  If not, error out.*/
+  /* serverinfo {} description must exist.  If not, error out.*/
   if (EmptyString(ConfigServerInfo.description))
   {
     ilog(LOG_TYPE_IRCD, "ERROR: No server description specified in serverinfo block.");
@@ -588,7 +586,7 @@ main(int argc, char *argv[])
 
   event_addish(&event_save_all_databases, NULL);
 
-  if (ConfigServerHide.links_delay > 0)
+  if (ConfigServerHide.links_delay)
   {
     event_write_links_file.when = ConfigServerHide.links_delay;
     event_addish(&event_write_links_file, NULL);
