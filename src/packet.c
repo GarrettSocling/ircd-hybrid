@@ -48,7 +48,7 @@ static char readBuf[READBUF_SIZE];
  * client_dopacket - copy packet to client buf and parse it
  *      client_p - pointer to client structure for which the buffer data
  *             applies.
- *      buffer - pointr to the buffer containing the newly read data
+ *      buffer - pointer to the buffer containing the newly read data
  *      length - number of valid bytes of data in the buffer
  *
  * Note:
@@ -260,7 +260,7 @@ flood_recalc(fde_t *fd, void *data)
 
   /*
    * Allow a bursting client their allocation per second, allow
-   * a client whos flooding an extra 2 per second
+   * a client who is flooding an extra 2 per second
    */
   if (IsFloodDone(client_p))
     client_p->connection->sent_parsed -= 2;
