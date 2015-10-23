@@ -208,10 +208,16 @@ static const struct InfoStruct info_table[] =
     "Flatten /links list"
   },
   {
-    "links_delay",
+    "flatten_links_delay",
     OUTPUT_DECIMAL,
-    &ConfigServerHide.links_delay,
+    &ConfigServerHide.flatten_links_delay,
     "Links rehash delay"
+  },
+  {
+    "flatten_links_file",
+    OUTPUT_STRING,
+    &ConfigServerHide.flatten_links_file,
+    "Path to the flatten links cache file"
   },
   {
     "hidden",

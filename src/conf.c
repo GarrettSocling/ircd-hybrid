@@ -819,7 +819,8 @@ set_default_conf(void)
   ConfigChannel.default_join_flood_time = 6;
 
   ConfigServerHide.flatten_links = 0;
-  ConfigServerHide.links_delay = 300;
+  ConfigServerHide.flatten_links_delay = 300;
+  ConfigServerHide.flatten_links_file = NULL;
   ConfigServerHide.hidden = 0;
   ConfigServerHide.hide_servers = 0;
   ConfigServerHide.hide_services = 0;
@@ -1224,6 +1225,9 @@ clear_out_old_conf(void)
   ConfigAdminInfo.email = NULL;
   MyFree(ConfigAdminInfo.description);
   ConfigAdminInfo.description = NULL;
+
+  MyFree(ConfigServerHide.flatten_links_file);
+  ConfigServerHide.flatten_links_file = NULL;
 
   /* Clean out listeners */
   listener_close_marked();
