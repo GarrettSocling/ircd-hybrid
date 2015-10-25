@@ -84,8 +84,7 @@ enum
                                  (x)->handler = SERVER_HANDLER; }
 
 #define SetClient(x)            {(x)->status = STAT_CLIENT; \
-                                 (x)->handler = HasUMode(x, UMODE_OPER) ? \
-                                 OPER_HANDLER : CLIENT_HANDLER; }
+                                 (x)->handler = CLIENT_HANDLER; }
 
 #define MyConnect(x)            ((x)->connection != NULL)
 #define MyClient(x)             (MyConnect(x) && IsClient(x))
@@ -218,7 +217,7 @@ enum
   OPER_FLAG_CLOSE          = 0x08000000U   /**< Oper can use CLOSE command */
 };
 
-#define HasOFlag(x, y) (MyConnect(x) ? (x)->connection->operflags & (y) : 0)
+#define HasOFlag(x, y) ((x)->connection->operflags &   (y))
 #define AddOFlag(x, y) ((x)->connection->operflags |=  (y))
 #define DelOFlag(x, y) ((x)->connection->operflags &= ~(y))
 #define ClrOFlag(x)    ((x)->connection->operflags = 0)
@@ -232,10 +231,10 @@ enum
 
 /* oper flags */
 #define SetOper(x)              {(x)->umodes |= UMODE_OPER; \
-                                 if (!IsServer((x))) (x)->handler = OPER_HANDLER;}
+                                 if (MyClient((x))) (x)->handler = OPER_HANDLER;}
 
 #define ClearOper(x)            {(x)->umodes &= ~(UMODE_OPER|UMODE_ADMIN); \
-                                 if (!HasUMode(x, UMODE_OPER) && !IsServer((x))) \
+                                 if (MyClient((x))) \
                                   (x)->handler = CLIENT_HANDLER; }
 
 #define IsFloodDone(x)          ((x)->flags &  FLAGS_FLOODDONE)
@@ -363,7 +362,7 @@ struct Client
   dlink_node node;
   dlink_node lnode;             /**< Used for Server->servers/users */
 
-  struct Connection *connection;
+  struct Connection *connection;  /**< Connection structure associated with this client */
   struct Client    *hnext;      /**< For client hash table lookups by name */
   struct Client    *idhnext;    /**< For SID hash table lookups by sid */
   struct Server    *serv;       /**< ...defined, if this is a server */

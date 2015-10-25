@@ -328,7 +328,7 @@ check_pidfile(const char *filename)
       {
         /* log(L_ERROR, "Server is already running"); */
         printf("ircd: daemon is already running\n");
-        exit(-1);
+        exit(EXIT_FAILURE);
       }
     }
 
@@ -586,13 +586,11 @@ main(int argc, char *argv[])
 
   event_addish(&event_save_all_databases, NULL);
 
-  if (ConfigServerHide.flatten_links_delay)
+  if (ConfigServerHide.flatten_links_delay && event_write_links_file.active == 0)
   {
     event_write_links_file.when = ConfigServerHide.flatten_links_delay;
-    event_addish(&event_write_links_file, NULL);
+    event_add(&event_write_links_file, NULL);
   }
-  else
-    ConfigServerHide.links_disabled = 1;
 
   ilog(LOG_TYPE_IRCD, "Server Ready");
   io_loop();

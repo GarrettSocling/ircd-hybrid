@@ -70,8 +70,8 @@ struct conf_parser_context conf_parser_ctx;
 dlink_list service_items;
 dlink_list server_items;
 dlink_list cluster_items;
-dlink_list oconf_items;
-dlink_list uconf_items;
+dlink_list operator_items;
+dlink_list shared_items;
 dlink_list xconf_items;
 dlink_list nresv_items;
 dlink_list cresv_items;
@@ -139,8 +139,8 @@ map_to_list(enum maskitem_type type)
     case CONF_XLINE:
       return &xconf_items;
       break;
-    case CONF_ULINE:
-      return &uconf_items;
+    case CONF_SHARED:
+      return &shared_items;
       break;
     case CONF_NRESV:
       return &nresv_items;
@@ -149,7 +149,7 @@ map_to_list(enum maskitem_type type)
       return &cresv_items;
       break;
     case CONF_OPER:
-      return &oconf_items;
+      return &operator_items;
       break;
     case CONF_SERVER:
       return &server_items;
@@ -589,7 +589,7 @@ find_matching_name_conf(enum maskitem_type type, const char *name, const char *u
     break;
 
   case CONF_XLINE:
-  case CONF_ULINE:
+  case CONF_SHARED:
   case CONF_NRESV:
   case CONF_CRESV:
     DLINK_FOREACH(node, list->head)
@@ -650,7 +650,7 @@ find_exact_name_conf(enum maskitem_type type, const struct Client *who, const ch
   switch(type)
   {
   case CONF_XLINE:
-  case CONF_ULINE:
+  case CONF_SHARED:
   case CONF_NRESV:
   case CONF_CRESV:
 
@@ -779,13 +779,8 @@ set_default_conf(void)
 
   SSL_CTX_set_cipher_list(ConfigServerInfo.server_ctx, "EECDH+HIGH:EDH+HIGH:HIGH:!aNULL");
   ConfigServerInfo.message_digest_algorithm = EVP_sha256();
-  ConfigServerInfo.rsa_private_key = NULL;
-  ConfigServerInfo.rsa_private_key_file = NULL;
 #endif
 
-  /* ConfigServerInfo.name is not rehashable */
-  /* ConfigServerInfo.name = ConfigServerInfo.name; */
-  ConfigServerInfo.description = NULL;
   ConfigServerInfo.network_name = xstrdup(NETWORK_NAME_DEFAULT);
   ConfigServerInfo.network_desc = xstrdup(NETWORK_DESC_DEFAULT);
 
@@ -798,10 +793,6 @@ set_default_conf(void)
   ConfigServerInfo.max_nick_length = 9;
   ConfigServerInfo.max_topic_length = 80;
   ConfigServerInfo.hub = 0;
-
-  ConfigAdminInfo.name = NULL;
-  ConfigAdminInfo.email = NULL;
-  ConfigAdminInfo.description = NULL;
 
   log_del_all();
 
@@ -820,7 +811,6 @@ set_default_conf(void)
 
   ConfigServerHide.flatten_links = 0;
   ConfigServerHide.flatten_links_delay = 300;
-  ConfigServerHide.flatten_links_file = NULL;
   ConfigServerHide.hidden = 0;
   ConfigServerHide.hide_servers = 0;
   ConfigServerHide.hide_services = 0;
@@ -1156,8 +1146,8 @@ clear_out_old_conf(void)
 {
   dlink_node *node = NULL, *node_next = NULL;
   dlink_list *free_items [] = {
-    &server_items,   &oconf_items,
-     &uconf_items,   &xconf_items,
+    &server_items,   &operator_items,
+     &shared_items,   &xconf_items,
      &nresv_items, &cluster_items,  &service_items, &cresv_items, NULL
   };
 
@@ -1263,7 +1253,7 @@ read_conf_files(int cold)
     {
       ilog(LOG_TYPE_IRCD, "Unable to read configuration file '%s': %s",
            filename, strerror(errno));
-      exit(-1);
+      exit(EXIT_FAILURE);
     }
     else
     {
