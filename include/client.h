@@ -100,11 +100,11 @@ enum
 
 enum
 {
-  CAP_MULTI_PREFIX   = 0x00000001U,
-  CAP_AWAY_NOTIFY    = 0x00000002U,
-  CAP_UHNAMES        = 0x00000004U,
-  CAP_EXTENDED_JOIN  = 0x00000008U,
-  CAP_ACCOUNT_NOTIFY = 0x00000010U
+  CAP_MULTI_PREFIX   = 0x00000001U,  /**< ircv3.1 multi-prefix client capability */
+  CAP_AWAY_NOTIFY    = 0x00000002U,  /**< ircv3.1 away-notify client capability */
+  CAP_UHNAMES        = 0x00000004U,  /**< ircv3.2 userhost-in-names client capability */
+  CAP_EXTENDED_JOIN  = 0x00000008U,  /**< ircv3.1 extended-join client capability */
+  CAP_ACCOUNT_NOTIFY = 0x00000010U   /**< ircv3.1 account-notify client capability */
 };
 
 #define HasCap(x, y) ((x)->connection->cap_active & (y))
@@ -301,7 +301,7 @@ struct Connection
 
   uint64_t serial;     /**< Used to enforce 1 send per nick */
 
-  time_t       lasttime;   /**< ...should be only LOCAL clients? --msa */
+  time_t       lasttime;   /**< Last time data read from socket */
   time_t       firsttime;  /**< Time client was created */
   time_t       since;      /**< Last time we parsed something */
   time_t       last_join_time;   /**< When this client last joined a channel */
@@ -372,7 +372,7 @@ struct Client
   time_t            tsinfo;     /**< TS on the nick, SVINFO on server */
 
   unsigned int      flags;      /**< Client flags */
-  unsigned int      umodes;     /**< Opers, normal users subset */
+  unsigned int      umodes;     /**< User modes this client has set */
   unsigned int      hopcount;   /**< Number of servers to this 0 = local */
   unsigned int      status;     /**< Client type */
   unsigned int      handler;    /**< Handler index */
@@ -416,7 +416,7 @@ struct Client
    */
   char              sockhost[HOSTIPLEN + 1]; /* This is the host name from the
                                                 socket ip address as string */
-  char             *certfp;
+  char             *certfp;  /**< SSL certificate fingerprint */
 };
 
 
