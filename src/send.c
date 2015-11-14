@@ -490,8 +490,8 @@ sendto_server(struct Client *one,
  *		  used by m_nick.c and exit_one_client.
  */
 void
-sendto_common_channels_local(struct Client *user, int touser, unsigned int cap,
-                             const char *pattern, ...)
+sendto_common_channels_local(struct Client *user, int touser, unsigned int poscap,
+                             unsigned int negcap, const char *pattern, ...)
 {
   va_list args;
   dlink_node *uptr;
@@ -520,7 +520,10 @@ sendto_common_channels_local(struct Client *user, int touser, unsigned int cap,
           target_p->connection->serial == current_serial)
         continue;
 
-      if (HasCap(target_p, cap) != cap)
+      if (poscap && HasCap(target_p, poscap) != poscap)
+        continue;
+
+      if (negcap && HasCap(target_p, negcap))
         continue;
 
       target_p->connection->serial = current_serial;
@@ -530,24 +533,23 @@ sendto_common_channels_local(struct Client *user, int touser, unsigned int cap,
 
   if (touser && MyConnect(user) && !IsDead(user) &&
       user->connection->serial != current_serial)
-    if (HasCap(user, cap) == cap)
+    if (HasCap(user, poscap) == poscap)
       send_message(user, buffer);
 
   dbuf_ref_free(buffer);
 }
 
-/* sendto_channel_local()
- *
- * inputs	- member status mask, e.g. CHFL_CHANOP | CHFL_VOICE
- *              - pointer to channel to send to
- *              - var args pattern
- * output	- NONE
- * side effects - Send a message to all members of a channel that are
- *		  locally connected to this server.
+/*! \brief Send a message to members of a channel that are locally connected to this server.
+ * \param one      Client to skip; can be NULL
+ * \param chptr    Destination channel
+ * \param status   Channel member status flags clients must have
+ * \param poscap   Positive client capabilities flags (CAP)
+ * \param negcap   Negative client capabilities flags (CAP)
+ * \param pattern  Format string for command arguments
  */
 void
-sendto_channel_local(unsigned int type, struct Channel *chptr,
-                     const char *pattern, ...)
+sendto_channel_local(const struct Client *one, struct Channel *chptr, unsigned int status,
+                     unsigned int poscap, unsigned int negcap, const char *pattern, ...)
 {
   va_list args;
   dlink_node *node = NULL;
@@ -561,52 +563,14 @@ sendto_channel_local(unsigned int type, struct Channel *chptr,
   {
     struct Membership *member = node->data;
     struct Client *target_p = member->client_p;
-
-    if (type && (member->flags & type) == 0)
-      continue;
 
     if (IsDefunct(target_p))
       continue;
-
-    send_message(target_p, buffer);
-  }
-
-  dbuf_ref_free(buffer);
-}
-
-/* sendto_channel_local_butone()
- *
- * inputs       - pointer to client to NOT send message to
- *              - member status mask, e.g. CHFL_CHANOP | CHFL_VOICE
- *              - pointer to channel to send to
- *              - var args pattern
- * output       - NONE
- * side effects - Send a message to all members of a channel that are
- *                locally connected to this server except one.
- *
- * WARNING - +D clients are omitted
- */
-void
-sendto_channel_local_butone(struct Client *one, unsigned int poscap, unsigned int negcap,
-                            struct Channel *chptr, const char *pattern, ...)
-{
-  va_list args;
-  dlink_node *node = NULL;
-  struct dbuf_block *buffer = dbuf_alloc();
-
-  va_start(args, pattern);
-  send_format(buffer, pattern, args);
-  va_end(args);
-
-  DLINK_FOREACH(node, chptr->locmembers.head)
-  {
-    struct Membership *member = node->data;
-    struct Client *target_p = member->client_p;
 
     if (one && target_p == one->from)
       continue;
 
-    if (IsDefunct(target_p))
+    if (status && (member->flags & status) == 0)
       continue;
 
     if (poscap && HasCap(target_p, poscap) != poscap)
