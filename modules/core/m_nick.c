@@ -324,19 +324,6 @@ change_remote_nick(struct Client *source_p, char *parv[])
  *                 pointers.
  * \note Valid arguments for this command are:
  *
- * server introducing new nick/UID (without services support)
- *      - parv[0] = command
- *      - parv[1] = nickname
- *      - parv[2] = hop count
- *      - parv[3] = TS
- *      - parv[4] = umode
- *      - parv[5] = username
- *      - parv[6] = hostname
- *      - parv[7] = ip
- *      - parv[8] = uid
- *      - parv[9] = ircname (gecos)
- *
- * server introducing new nick/UID (with services support)
  *      - parv[ 0] = command
  *      - parv[ 1] = nickname
  *      - parv[ 2] = hop count
@@ -359,7 +346,7 @@ uid_from_server(struct Client *source_p, int parc, char *parv[])
   client_p->hopcount = atoi(parv[2]);
   client_p->tsinfo = atol(parv[3]);
 
-  strlcpy(client_p->account, (parc == 11 ? parv[9] : "*"), sizeof(client_p->account));
+  strlcpy(client_p->account, parv[9], sizeof(client_p->account));
   strlcpy(client_p->name, parv[1], sizeof(client_p->name));
   strlcpy(client_p->id, parv[8], sizeof(client_p->id));
   strlcpy(client_p->sockhost, parv[7], sizeof(client_p->sockhost));
@@ -457,10 +444,7 @@ perform_uid_introduction_collides(struct Client *source_p, struct Client *target
   }
 
   /* The timestamps are different */
-  if (!strcmp(target_p->sockhost, "0")) /* XXX: TBR */
-    sameuser = !irccmp(target_p->username, parv[5]) && !irccmp(target_p->host, parv[6]);
-  else
-    sameuser = !irccmp(target_p->username, parv[5]) && !irccmp(target_p->sockhost, parv[7]);
+  sameuser = !irccmp(target_p->username, parv[5]) && !irccmp(target_p->sockhost, parv[7]);
 
   /*
    * If the users are the same (loaded a client on a different server)
@@ -546,12 +530,8 @@ perform_nick_change_collides(struct Client *source_p, struct Client *target_p,
   }
 
   /* The timestamps are different */
-  if (!strcmp(target_p->sockhost, "0") || !strcmp(source_p->sockhost, "0")) /* XXX: TBR */
-    sameuser = !irccmp(target_p->username, source_p->username) &&
-               !irccmp(target_p->host, source_p->host);
-  else
-    sameuser = !irccmp(target_p->username, source_p->username) &&
-               !irccmp(target_p->sockhost, source_p->sockhost);
+  sameuser = !irccmp(target_p->username, source_p->username) &&
+             !irccmp(target_p->sockhost, source_p->sockhost);
 
   if ((sameuser && newts < target_p->tsinfo) ||
       (!sameuser && newts > target_p->tsinfo))
@@ -875,7 +855,7 @@ static struct Message nick_msgtab =
 static struct Message uid_msgtab =
 {
   .cmd = "UID",
-  .args_min = 10,
+  .args_min = 11,
   .args_max = MAXPARA,
   .handlers[UNREGISTERED_HANDLER] = m_ignore,
   .handlers[CLIENT_HANDLER] = m_ignore,

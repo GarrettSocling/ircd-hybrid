@@ -126,7 +126,7 @@ whois_person(struct Client *source_p, struct Client *target_p)
   if (HasUMode(target_p, UMODE_REGISTERED))
     sendto_one_numeric(source_p, &me, RPL_WHOISREGNICK, target_p->name);
 
-  if (!IsDigit(target_p->account[0]) && target_p->account[0] != '*')
+  if (strcmp(target_p->account, "*"))
     sendto_one_numeric(source_p, &me, RPL_WHOISACCOUNT, target_p->name,
                        target_p->account, "is");
 
@@ -185,10 +185,9 @@ whois_person(struct Client *source_p, struct Client *target_p)
   }
 
   if (HasUMode(source_p, UMODE_OPER) || source_p == target_p)
-    if (strcmp(target_p->sockhost, "0")) /* XXX: TBR */
-      sendto_one_numeric(source_p, &me, RPL_WHOISACTUALLY, target_p->name,
-                         target_p->username, target_p->host,
-                         target_p->sockhost);
+    sendto_one_numeric(source_p, &me, RPL_WHOISACTUALLY, target_p->name,
+                       target_p->username, target_p->host,
+                       target_p->sockhost);
 
   if (HasUMode(target_p, UMODE_SSL))
     sendto_one_numeric(source_p, &me, RPL_WHOISSECURE, target_p->name);
