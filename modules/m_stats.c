@@ -46,7 +46,7 @@
 #include "resv.h"
 #include "whowas.h"
 #include "watch.h"
-#include "res.h"
+#include "reslib.h"
 #include "motd.h"
 #include "ipcache.h"
 
@@ -530,7 +530,15 @@ stats_memory(struct Client *source_p, int parc, char *parv[])
 static void
 stats_dns_servers(struct Client *source_p, int parc, char *parv[])
 {
-  report_dns_servers(source_p);
+  char ipaddr[HOSTIPLEN + 1] = "";
+
+  for (unsigned int i = 0; i < irc_nscount; ++i)
+  {
+    getnameinfo((const struct sockaddr *)&(irc_nsaddr_list[i]),
+                irc_nsaddr_list[i].ss_len, ipaddr,
+                sizeof(ipaddr), NULL, 0, NI_NUMERICHOST);
+    sendto_one_numeric(source_p, &me, RPL_STATSALINE, ipaddr);
+  } 
 }
 
 static void
@@ -937,7 +945,7 @@ stats_operedup(struct Client *source_p, int parc, char *parv[])
       continue;
 
     if (HasUMode(source_p, UMODE_OPER) || !HasUMode(target_p, UMODE_HIDEIDLE))
-      snprintf(buf, sizeof(buf), "%u", client_get_idle_time(source_p, target_p));
+      snprintf(buf, sizeof(buf), "%s", time_dissect(client_get_idle_time(source_p, target_p)));
     else
       strlcpy(buf, "n/a", sizeof(buf));
 
@@ -1136,10 +1144,10 @@ stats_servers(struct Client *source_p, int parc, char *parv[])
     const struct Client *target_p = node->data;
 
     sendto_one_numeric(source_p, &me, RPL_STATSDEBUG | SND_EXPLICIT,
-                       "v :%s (%s!%s@%s) Idle: %d",
+                       "v :%s (%s!%s@%s) Idle: %s",
                        target_p->name,
                        (target_p->serv->by[0] ? target_p->serv->by : "Remote."),
-                       "*", "*", (int)(CurrentTime - target_p->connection->lasttime));
+                       "*", "*", time_dissect(CurrentTime - target_p->connection->lasttime));
   }
 
   sendto_one_numeric(source_p, &me, RPL_STATSDEBUG | SND_EXPLICIT,

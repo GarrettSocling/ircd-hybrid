@@ -45,18 +45,13 @@
 
 #include "stdinc.h"
 #include "list.h"
-#include "client.h"
 #include "event.h"
 #include "irc_string.h"
 #include "ircd.h"
-#include "numeric.h"
 #include "rng_mt.h"
 #include "fdlist.h"
 #include "s_bsd.h"
-#include "log.h"
 #include "misc.h"
-#include "send.h"
-#include "memory.h"
 #include "mempool.h"
 #include "res.h"
 #include "reslib.h"
@@ -634,20 +629,6 @@ res_readreply(fde_t *fd, void *data)
   }
 
   comm_setselect(fd, COMM_SELECT_READ, res_readreply, NULL, 0);
-}
-
-void
-report_dns_servers(struct Client *source_p)
-{
-  char ipaddr[HOSTIPLEN + 1] = "";
-
-  for (unsigned int i = 0; i < irc_nscount; ++i)
-  {
-    getnameinfo((const struct sockaddr *)&(irc_nsaddr_list[i]),
-                irc_nsaddr_list[i].ss_len, ipaddr,
-                sizeof(ipaddr), NULL, 0, NI_NUMERICHOST);
-    sendto_one_numeric(source_p, &me, RPL_STATSALINE, ipaddr);
-  }
 }
 
 /*
