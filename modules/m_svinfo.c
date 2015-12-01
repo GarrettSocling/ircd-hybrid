@@ -46,7 +46,7 @@
  *      - parv[0] = command
  *      - parv[1] = TS_CURRENT for the server
  *      - parv[2] = TS_MIN for the server
- *      - parv[3] = server is standalone or connected to non-TS only
+ *      - parv[3] = unused
  *      - parv[4] = server's idea of UTC time
  */
 static int
@@ -89,11 +89,11 @@ ms_svinfo(struct Client *source_p, int parc, char *parv[])
   if (deltat > ConfigGeneral.ts_max_delta)
   {
     sendto_realops_flags(UMODE_SERVNOTICE, L_ADMIN, SEND_NOTICE,
-          "Link %s dropped, excessive TS delta (my TS=%ju, their TS=%ju, delta=%ji)",
-          get_client_name(source_p, SHOW_IP), CurrentTime, theirtime, deltat);
+         "Link %s dropped, excessive TS delta (my TS=%ju, their TS=%ju, delta=%ji)",
+         get_client_name(source_p, SHOW_IP), CurrentTime, theirtime, deltat);
     sendto_realops_flags(UMODE_SERVNOTICE, L_OPER, SEND_NOTICE,
-          "Link %s dropped, excessive TS delta (my TS=%ju, their TS=%ju, delta=%ji)",
-           get_client_name(source_p, MASK_IP), CurrentTime, theirtime, deltat);
+         "Link %s dropped, excessive TS delta (my TS=%ju, their TS=%ju, delta=%ji)",
+          get_client_name(source_p, MASK_IP), CurrentTime, theirtime, deltat);
     ilog(LOG_TYPE_IRCD,
          "Link %s dropped, excessive TS delta (my TS=%ju, their TS=%ju, delta=%ji)",
          get_client_name(source_p, SHOW_IP), CurrentTime, theirtime, deltat);
