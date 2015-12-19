@@ -203,7 +203,7 @@ client_clear_svstags(struct Client *client_p)
 static void
 check_pings_list(dlink_list *list)
 {
-  char buf[IRCD_BUFSIZE] = "";
+  char buf[32] = "";  /* 32 = sizeof("Ping timeout: 999999999 seconds") */
   int ping = 0;      /* ping time value from client */
   dlink_node *node = NULL, *node_next = NULL;
 
@@ -530,7 +530,7 @@ find_chasing(struct Client *source_p, const char *name)
 const char *
 get_client_name(const struct Client *client_p, enum addr_mask_type type)
 {
-  static char buf[HOSTLEN * 2 + USERLEN + 5];
+  static char buf[HOSTLEN * 2 + USERLEN + 4];  /* +4 for [,@,],\0 */
 
   if (!MyConnect(client_p))
     return client_p->name;
