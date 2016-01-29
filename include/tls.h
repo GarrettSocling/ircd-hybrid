@@ -1,6 +1,8 @@
 /*
  *  ircd-hybrid: an advanced, lightweight Internet Relay Chat Daemon (ircd)
  *
+ *  Copyright (c) 2015 Attila Molnar <attilamolnar@hush.com>
+ *  Copyright (c) 2015 Adam <Adam@anope.org>
  *  Copyright (c) 2015-2016 ircd-hybrid development team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -66,6 +68,6 @@ extern void tls_shutdown(tls_data_t *);
 
 extern int tls_set_ciphers(tls_data_t *, const char *);
 
-extern int tls_verify_cert(tls_data_t *, tls_md_t, char **, int *);
+extern int tls_verify_cert(tls_data_t *, tls_md_t, char **);
 
 #endif  /* INCLUDED_tls_h */

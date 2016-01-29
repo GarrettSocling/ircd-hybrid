@@ -1,6 +1,8 @@
 /*
  *  ircd-hybrid: an advanced, lightweight Internet Relay Chat Daemon (ircd)
  *
+ *  Copyright (c) 2015 Attila Molnar <attilamolnar@hush.com>
+ *  Copyright (c) 2015 Adam <Adam@anope.org>
  *  Copyright (c) 2015-2016 ircd-hybrid development team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,7 +30,7 @@
 #include "tls.h"
 #include "conf.h"
 #include "log.h"
-#include "rsa.h"
+#include "misc.h"
 #include "memory.h"
 
 #ifdef HAVE_TLS_GNUTLS
@@ -167,9 +169,11 @@ tls_read(tls_data_t *tls_data, char *buf, size_t bufsize, int *want_write)
       case GNUTLS_E_AGAIN:
       case GNUTLS_E_INTERRUPTED:
         errno = EWOULDBLOCK;
+        return -1;
       case 0:  /* Closed */
       default:  /* Other error */
-        return -1;
+        /* XXX can gnutls_strerror(length) if <0 for gnutls's idea of the reason */
+        return 0;
     }
   }
 
@@ -189,8 +193,9 @@ tls_write(tls_data_t *tls_data, const char *buf, size_t bufsize, int *want_read)
       case GNUTLS_E_INTERRUPTED:
       case 0:
         errno = EWOULDBLOCK;
-      default:
         return -1;
+      default:
+        return 0;
     }
   }
 
@@ -282,7 +287,7 @@ tls_handshake(tls_data_t *tls_data, tls_role_t role, const char **errstr)
 }
 
 int
-tls_verify_cert(tls_data_t *tls_data, tls_md_t digest, char **fingerprint, int *raw_result)
+tls_verify_cert(tls_data_t *tls_data, tls_md_t digest, char **fingerprint)
 {
   int ret;
   gnutls_x509_crt_t cert;
@@ -311,11 +316,11 @@ tls_verify_cert(tls_data_t *tls_data, tls_md_t digest, char **fingerprint, int *
   binary_to_hex(digestbuf, buf, digest_size);
   *fingerprint = xstrdup(buf);
 
+  gnutls_x509_crt_deinit(cert);
   return 1;
 
 info_done_dealloc:
   gnutls_x509_crt_deinit(cert);
-  *raw_result = 0;
   return 0;
 }
 #endif  /* HAVE_TLS_GNUTLS */

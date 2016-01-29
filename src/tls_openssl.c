@@ -1,6 +1,8 @@
 /*
  *  ircd-hybrid: an advanced, lightweight Internet Relay Chat Daemon (ircd)
  *
+ *  Copyright (c) 2015 Attila Molnar <attilamolnar@hush.com>
+ *  Copyright (c) 2015 Adam <Adam@anope.org>
  *  Copyright (c) 2005-2016 ircd-hybrid development team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,10 +30,22 @@
 #include "tls.h"
 #include "conf.h"
 #include "log.h"
-#include "rsa.h"
+#include "misc.h"
 #include "memory.h"
 
 #ifdef HAVE_TLS_OPENSSL
+
+/*
+ * report_crypto_errors - Dump crypto error list to log
+ */
+static void
+report_crypto_errors(void)
+{
+  unsigned long e = 0;
+
+  while ((e = ERR_get_error()))
+    ilog(LOG_TYPE_IRCD, "SSL error: %s", ERR_error_string(e, 0));
+}
 
 static int
 always_accept_verify_cb(int preverify_ok, X509_STORE_CTX *x509_ctx)
@@ -362,7 +376,7 @@ tls_handshake(tls_data_t *tls_data, tls_role_t role, const char **errstr)
 }
 
 int
-tls_verify_cert(tls_data_t *tls_data, tls_md_t digest, char **fingerprint, int *raw_result)
+tls_verify_cert(tls_data_t *tls_data, tls_md_t digest, char **fingerprint)
 {
   SSL *ssl = *tls_data;
   X509 *cert = SSL_get_peer_certificate(ssl);
@@ -390,7 +404,6 @@ tls_verify_cert(tls_data_t *tls_data, tls_md_t digest, char **fingerprint, int *
   }
 
   X509_free(cert);
-  *raw_result = res;
   return ret;
 }
 #endif  /* HAVE_TLS_OPENSSL */
