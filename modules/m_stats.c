@@ -32,6 +32,9 @@
 #include "listener.h"
 #include "conf.h"
 #include "conf_class.h"
+#include "conf_cluster.h"
+#include "conf_resv.h"
+#include "conf_shared.h"
 #include "hostmask.h"
 #include "numeric.h"
 #include "send.h"
@@ -43,7 +46,6 @@
 #include "dbuf.h"
 #include "parse.h"
 #include "modules.h"
-#include "resv.h"
 #include "whowas.h"
 #include "watch.h"
 #include "reslib.h"
@@ -51,22 +53,91 @@
 #include "ipcache.h"
 
 
-static const struct shared_flags
+static void
+report_shared(struct Client *source_p)
 {
-  const unsigned int type;
-  const unsigned char letter;
-} flag_table[] = {
-  { SHARED_KLINE,   'K' },
-  { SHARED_UNKLINE, 'U' },
-  { SHARED_XLINE,   'X' },
-  { SHARED_UNXLINE, 'Y' },
-  { SHARED_RESV,    'Q' },
-  { SHARED_UNRESV,  'R' },
-  { SHARED_LOCOPS,  'L' },
-  { SHARED_DLINE,   'D' },
-  { SHARED_UNDLINE, 'E' },
-  { 0, '\0' }
-};
+  static const struct shared_types
+  {
+    unsigned int type;
+    unsigned char letter;
+  } flag_table[] = {
+    { SHARED_KLINE,   'K' },
+    { SHARED_UNKLINE, 'U' },
+    { SHARED_XLINE,   'X' },
+    { SHARED_UNXLINE, 'Y' },
+    { SHARED_RESV,    'Q' },
+    { SHARED_UNRESV,  'R' },
+    { SHARED_LOCOPS,  'L' },
+    { SHARED_DLINE,   'D' },
+    { SHARED_UNDLINE, 'E' },
+    { 0, '\0' }
+  };
+
+  dlink_node *node;
+  char buf[sizeof(flag_table) / sizeof(struct shared_types)];
+
+  DLINK_FOREACH(node, shared_get_list()->head)
+  {
+    const struct SharedItem *shared = node->data;
+    char *p = buf;
+
+    *p++ = 'c';
+
+    for (const struct shared_types *tab = flag_table; tab->type; ++tab)
+      if (tab->type & shared->type)
+        *p++ = tab->letter;
+      else
+        *p++ = ToLower(tab->letter);
+
+    *p = '\0';
+
+    sendto_one_numeric(source_p, &me, RPL_STATSULINE, shared->server,
+                       shared->user, shared->host, buf);
+  }
+}
+
+static void
+report_cluster(struct Client *source_p)
+{
+  static const struct cluster_types
+  {
+    unsigned int type;
+    unsigned char letter;
+  } flag_table[] = {
+    { CLUSTER_KLINE,   'K' },
+    { CLUSTER_UNKLINE, 'U' },
+    { CLUSTER_XLINE,   'X' },
+    { CLUSTER_UNXLINE, 'Y' },
+    { CLUSTER_RESV,    'Q' },
+    { CLUSTER_UNRESV,  'R' },
+    { CLUSTER_LOCOPS,  'L' },
+    { CLUSTER_DLINE,   'D' },
+    { CLUSTER_UNDLINE, 'E' },
+    { 0, '\0' }
+  };
+
+  dlink_node *node;
+  char buf[sizeof(flag_table) / sizeof(struct cluster_types)];
+
+  DLINK_FOREACH(node, cluster_get_list()->head)
+  {
+    const struct ClusterItem *cluster = node->data;
+    char *p = buf;
+
+    *p++ = 'C';
+
+    for (const struct cluster_types *tab = flag_table; tab->type; ++tab)
+      if (tab->type & cluster->type)
+        *p++ = tab->letter;
+      else
+        *p++ = ToLower(tab->letter);
+
+    *p = '\0';
+
+    sendto_one_numeric(source_p, &me, RPL_STATSULINE, cluster->server,
+                       "*", "*", buf);
+  }
+}
 
 /*
  * inputs	- pointer to client requesting confitem report
@@ -91,47 +162,6 @@ report_confitem_types(struct Client *source_p, enum maskitem_type type)
         sendto_one_numeric(source_p, &me, RPL_STATSXLINE,
                            conf->until ? 'x': 'X', conf->count,
                            conf->name, conf->reason);
-      }
-
-      break;
-
-    case CONF_SHARED:
-      DLINK_FOREACH(node, shared_items.head)
-      {
-        conf = node->data;
-        p = buf;
-
-        *p++ = 'c';
-
-        for (const struct shared_flags *shared = flag_table; shared->type; ++shared)
-          if (shared->type & conf->modes)
-            *p++ = shared->letter;
-          else
-            *p++ = ToLower(shared->letter);
-
-        *p = '\0';
-
-        sendto_one_numeric(source_p, &me, RPL_STATSULINE, conf->name,
-                           conf->user ? conf->user: "*",
-                           conf->host ? conf->host: "*", buf);
-      }
-
-      DLINK_FOREACH(node, cluster_items.head)
-      {
-        conf = node->data;
-        p = buf;
-
-        *p++ = 'C';
-
-        for (const struct shared_flags *shared = flag_table; shared->type; ++shared)
-          if (shared->type & conf->modes)
-            *p++ = shared->letter;
-          else
-            *p++ = ToLower(shared->letter);
-
-        *p = '\0';
-
-        sendto_one_numeric(source_p, &me, RPL_STATSULINE, conf->name, "*", "*", buf);
       }
 
       break;
@@ -1124,7 +1154,8 @@ stats_uptime(struct Client *source_p, int parc, char *parv[])
 static void
 stats_shared(struct Client *source_p, int parc, char *parv[])
 {
-  report_confitem_types(source_p, CONF_SHARED);
+  report_shared(source_p);
+  report_cluster(source_p);
 }
 
 /* stats_servers()

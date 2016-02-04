@@ -28,9 +28,11 @@
 #include "list.h"
 #include "ircd_defs.h"
 #include "conf.h"
+#include "conf_cluster.h"
 #include "conf_pseudo.h"
+#include "conf_resv.h"
+#include "conf_shared.h"
 #include "server.h"
-#include "resv.h"
 #include "channel.h"
 #include "client.h"
 #include "event.h"
@@ -69,9 +71,7 @@ struct conf_parser_context conf_parser_ctx;
 /* general conf items link list root, other than k lines etc. */
 dlink_list service_items;
 dlink_list server_items;
-dlink_list cluster_items;
 dlink_list operator_items;
-dlink_list shared_items;
 dlink_list gecos_items;
 dlink_list nresv_items;
 dlink_list cresv_items;
@@ -139,9 +139,6 @@ map_to_list(enum maskitem_type type)
     case CONF_XLINE:
       return &gecos_items;
       break;
-    case CONF_SHARED:
-      return &shared_items;
-      break;
     case CONF_NRESV:
       return &nresv_items;
       break;
@@ -156,9 +153,6 @@ map_to_list(enum maskitem_type type)
       break;
     case CONF_SERVICE:
       return &service_items;
-      break;
-    case CONF_CLUSTER:
-      return &cluster_items;
       break;
     default:
       return NULL;
@@ -585,7 +579,6 @@ find_matching_name_conf(enum maskitem_type type, const char *name, const char *u
     break;
 
   case CONF_XLINE:
-  case CONF_SHARED:
   case CONF_NRESV:
   case CONF_CRESV:
     DLINK_FOREACH(node, list->head)
@@ -646,7 +639,6 @@ find_exact_name_conf(enum maskitem_type type, const struct Client *who, const ch
   switch(type)
   {
   case CONF_XLINE:
-  case CONF_SHARED:
   case CONF_NRESV:
   case CONF_CRESV:
 
@@ -1023,11 +1015,11 @@ cleanup_tklines(void *unused)
  * output        - pointer to static string showing oper privs
  * side effects  - return as string, the oper privs as derived from port
  */
-static const struct oper_privs
+static const struct oper_flags
 {
   const unsigned int flag;
   const unsigned char c;
-} flag_list[] = {
+} flag_table[] = {
   { OPER_FLAG_ADMIN,          'A' },
   { OPER_FLAG_CLOSE,          'B' },
   { OPER_FLAG_CONNECT,        'C' },
@@ -1060,21 +1052,21 @@ static const struct oper_privs
 };
 
 const char *
-oper_privs_as_string(const unsigned int port)
+oper_privs_as_string(const unsigned int flags)
 {
-  static char privs_out[IRCD_BUFSIZE];
-  char *privs_ptr = privs_out;
+  static char buf[sizeof(flag_table) / sizeof(struct oper_flags)];
+  char *p = buf;
 
-  for (const struct oper_privs *opriv = flag_list; opriv->flag; ++opriv)
-    if (port & opriv->flag)
-      *privs_ptr++ = opriv->c;
+  for (const struct oper_flags *tab = flag_table; tab->flag; ++tab)
+    if (flags & tab->flag)
+      *p++ = tab->c;
 
-  if (privs_ptr == privs_out)
-    *privs_ptr++ = '0';
+  if (p == buf)
+    *p++ = '0';
 
-  *privs_ptr = '\0';
+  *p = '\0';
 
-  return privs_out;
+  return buf;
 }
 
 /*
@@ -1131,8 +1123,8 @@ clear_out_old_conf(void)
   dlink_node *node = NULL, *node_next = NULL;
   dlink_list *free_items [] = {
     &server_items,   &operator_items,
-     &shared_items,   &gecos_items,
-     &nresv_items, &cluster_items,  &service_items, &cresv_items, NULL
+     &gecos_items,
+     &nresv_items, &service_items, &cresv_items, NULL
   };
 
   dlink_list ** iterator = free_items; /* C is dumb */
@@ -1159,7 +1151,7 @@ clear_out_old_conf(void)
     }
   }
 
-  motd_clear();
+  motd_clear();  /* Clear motd {} items and re-cache default motd */
 
   /*
    * Don't delete the class table, rather mark all entries for deletion.
@@ -1169,10 +1161,15 @@ clear_out_old_conf(void)
 
   clear_out_address_conf();
 
-  /* Clean out module paths */
-  mod_clear_paths();
+  modules_conf_clear();  /* Clear modules {} items */
 
-  pseudo_clear();
+  motd_clear();  /* Clear motd {} items and re-cache default motd */
+
+  cluster_clear();  /* Clear cluster {} items */
+
+  shared_clear();  /* Clear shared {} items */
+
+  pseudo_clear();  /* Clear pseudo {} items */
 
   /* Clean out ConfigServerInfo */
   xfree(ConfigServerInfo.description);
@@ -1218,7 +1215,7 @@ conf_handle_tls(int cold)
     if (cold)
     {
       ilog(LOG_TYPE_IRCD, "Error while initializing TLS");
-      exit(-1);
+      exit(EXIT_FAILURE);
     }
     else
     {
@@ -1742,40 +1739,6 @@ match_conf_password(const char *password, const struct MaskItem *conf)
     encr = password;
 
   return encr && !strcmp(encr, conf->passwd);
-}
-
-/*
- * cluster_a_line
- *
- * inputs	- client sending the cluster
- *		- command name "KLINE" "XLINE" etc.
- *		- capab -- CAPAB_KLN etc. from server.h
- *		- cluster type -- CLUSTER_KLINE etc. from conf.h
- *		- pattern and args to send along
- * output	- none
- * side effects	- Take source_p send the pattern with args given
- *		  along to all servers that match capab and cluster type
-*/
-void
-cluster_a_line(struct Client *source_p, const char *command, unsigned int capab,
-               unsigned int cluster_type, const char *pattern, ...)
-{
-  va_list args;
-  char buffer[IRCD_BUFSIZE] = "";
-  const dlink_node *node = NULL;
-
-  va_start(args, pattern);
-  vsnprintf(buffer, sizeof(buffer), pattern, args);
-  va_end(args);
-
-  DLINK_FOREACH(node, cluster_items.head)
-  {
-    const struct MaskItem *conf = node->data;
-
-    if (conf->flags & cluster_type)
-      sendto_match_servs(source_p, conf->name, CAPAB_CLUSTER | capab,
-                         "%s %s %s", command, conf->name, buffer);
-  }
 }
 
 /*
