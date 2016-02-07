@@ -31,6 +31,12 @@
 
 #ifndef HAVE_TLS
 
+int
+tls_is_initialized(void)
+{
+  return 0;
+}
+
 void
 tls_init(void)
 {
@@ -78,6 +84,12 @@ tls_shutdown(tls_data_t *tls_data)
 
 int
 tls_new(tls_data_t *tls_data, int fd, tls_role_t role)
+{
+  return 0;
+}
+
+tls_handshake_status_t
+tls_handshake(tls_data_t *tls_data, tls_role_t role, const char **errstr)
 {
   return 0;
 }

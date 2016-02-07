@@ -62,7 +62,8 @@
 
 
 #ifdef HAVE_LIBGEOIP
-GeoIP *geoip_ctx;
+GeoIP *GeoIPv4_ctx;
+GeoIP *GeoIPv6_ctx;
 #endif
 
 struct SetOptions GlobalSetOptions;  /* /quote set variables */
@@ -408,9 +409,7 @@ main(int argc, char *argv[])
   if (!server_state.foreground)
   {
     make_daemon();
-    //https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=768841 says close_standard_fds should be ok
-    //since we are initing gnutls explicitly on the other side, but it doesn't work for me
-    //close_standard_fds(); /* this needs to be before init_netio()! */
+    close_standard_fds(); /* this needs to be before init_netio()! */
   }
   else
     print_startup(getpid());
@@ -448,9 +447,6 @@ main(int argc, char *argv[])
   read_links_file();
   motd_init();
   user_modes_init();
-#ifdef HAVE_LIBGEOIP
-  geoip_ctx = GeoIP_new(GEOIP_MEMORY_CACHE);
-#endif
 
   if (EmptyString(ConfigServerInfo.name))
   {

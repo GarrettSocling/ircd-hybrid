@@ -193,10 +193,8 @@ close_connection(struct Client *client_p)
   else
     ++ServerStats.is_ni;
 
-#ifdef HAVE_TLS
   if (tls_isusing(&client_p->connection->fd.ssl))
     tls_shutdown(&client_p->connection->fd.ssl);
-#endif
 
   if (client_p->connection->fd.flags.open)
     fd_close(&client_p->connection->fd);
@@ -210,7 +208,6 @@ close_connection(struct Client *client_p)
   detach_conf(client_p, CONF_CLIENT | CONF_OPER | CONF_SERVER);
 }
 
-#ifdef HAVE_TLS
 /*
  * ssl_handshake - let OpenSSL initialize the protocol. Register for
  * read/write events if necessary.
@@ -253,7 +250,6 @@ ssl_handshake(fde_t *fd, void *data)
 
   start_auth(client_p);
 }
-#endif
 
 /*
  * add_connection - creates a client which has just connected to us on
@@ -283,11 +279,17 @@ add_connection(struct Listener *listener, struct irc_ssaddr *irn, int fd)
   client_p->connection->aftype = client_p->connection->ip.ss.ss_family;
 
 #ifdef HAVE_LIBGEOIP
-  /* XXX IPV6 SUPPORT XXX */
-  if (irn->ss.ss_family == AF_INET && geoip_ctx)
+  if (irn->ss.ss_family == AF_INET && GeoIPv4_ctx)
   {
-    const struct sockaddr_in *v4 = (const struct sockaddr_in *)&client_p->connection->ip;
-    client_p->connection->country_id = GeoIP_id_by_ipnum(geoip_ctx, (unsigned long)ntohl(v4->sin_addr.s_addr));
+    GeoIPLookup gl;
+    const struct sockaddr_in *const v4 = (const struct sockaddr_in *)&client_p->connection->ip;
+    client_p->connection->country_id = GeoIP_id_by_ipnum_gl(GeoIPv4_ctx, (unsigned long)ntohl(v4->sin_addr.s_addr), &gl);
+  }
+  else if (irn->ss.ss_family == AF_INET6 && GeoIPv6_ctx)
+  {
+    GeoIPLookup gl;
+    const struct sockaddr_in6 *const v6 = (const struct sockaddr_in6 *)&client_p->connection->ip;
+    client_p->connection->country_id = GeoIP_id_by_ipnum_v6_gl(GeoIPv6_ctx, v6->sin6_addr, &gl);
   }
 #endif
 
@@ -304,7 +306,6 @@ add_connection(struct Listener *listener, struct irc_ssaddr *irn, int fd)
   client_p->connection->listener = listener;
   ++listener->ref_count;
 
-#ifdef HAVE_TLS
   if (listener->flags & LISTENER_SSL)
   {
     if (!tls_new(&client_p->connection->fd.ssl, fd, TLS_ROLE_SERVER))
@@ -318,7 +319,6 @@ add_connection(struct Listener *listener, struct irc_ssaddr *irn, int fd)
     ssl_handshake(NULL, client_p);
   }
   else
-#endif
     start_auth(client_p);
 }
 
