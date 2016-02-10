@@ -1,7 +1,7 @@
 /*
  *  ircd-hybrid: an advanced, lightweight Internet Relay Chat Daemon (ircd)
  *
- *  Copyright (c) 2012-2016 ircd-hybrid development team
+ *  Copyright (c) 1998-2016 ircd-hybrid development team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,23 +19,28 @@
  *  USA
  */
 
-/*! \file conf_service.h
- * \brief Implements service {} block configuration management.
+/*! \file conf_gecos.h
+ * \brief Implements gecos {} block configuration management.
  * \version $Id$
  */
 
-#ifndef INCLUDED_conf_service_h
-#define INCLUDED_conf_service_h
-#include "stdinc.h"
+#ifndef INCLUDED_conf_gecos_h
+#define INCLUDED_conf_gecos_h
 
-struct ServiceItem
+struct GecosItem
 {
   dlink_node node;
-  char *name;
+  char *mask;
+  char *reason;
+  time_t expire;
+  time_t setat;
+  unsigned int in_database;
 };
 
-extern const dlink_list *service_get_list(void);
-extern void service_clear(void);
-extern struct ServiceItem *service_make(void);
-extern const struct ServiceItem *service_find(const char *);
-#endif
+extern const dlink_list *gecos_get_list(void);
+extern void gecos_delete(struct GecosItem *);
+extern struct GecosItem *gecos_make(void);
+extern struct GecosItem *gecos_find(const char *, int (*)(const char *, const char *));
+extern void gecos_clear(void);
+extern void gecos_expire(void);
+#endif  /* INCLUDED_conf_gecos_h */
