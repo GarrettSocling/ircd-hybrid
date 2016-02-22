@@ -157,7 +157,7 @@ flood_attack_client(int p_or_n, struct Client *source_p, struct Client *target_p
         target_p->connection->received_number_of_privmsgs += 2;  /* Add a bit of penalty */
       }
 
-      if (MyClient(source_p) && p_or_n != NOTICE)
+      if (p_or_n != NOTICE)
         sendto_one_notice(source_p, &me, ":*** Message to %s throttled due to flooding",
                           target_p->name);
       return 1;
@@ -210,10 +210,13 @@ flood_attack_channel(int p_or_n, struct Client *source_p, struct Channel *chptr)
         chptr->received_number_of_privmsgs += 2;  /* Add a bit of penalty */
       }
 
-      if (MyClient(source_p) && p_or_n != NOTICE)
-        sendto_one_notice(source_p, &me, ":*** Message to %s throttled due to flooding",
-                          chptr->name);
-      return 1;
+      if (MyClient(source_p))
+      {
+        if (p_or_n != NOTICE)
+          sendto_one_notice(source_p, &me, ":*** Message to %s throttled due to flooding",
+                            chptr->name);
+        return 1;
+      }
     }
     else
       chptr->received_number_of_privmsgs++;
@@ -455,7 +458,6 @@ handle_special(int p_or_n, struct Client *source_p,
 static void
 build_target_list(int p_or_n, struct Client *source_p, char *list, const char *text)
 {
-  unsigned int type = 0;
   char *p = NULL;
   void *target = NULL;
 
@@ -464,8 +466,6 @@ build_target_list(int p_or_n, struct Client *source_p, char *list, const char *t
   for (const char *name = strtok_r(list, ",", &p); name;
                    name = strtok_r(NULL, ",", &p))
   {
-    const char *with_prefix = NULL;
-
     /*
      * Channels are privmsg'd a lot more than other clients, moved up
      * here plain old channel msg?
@@ -515,8 +515,8 @@ build_target_list(int p_or_n, struct Client *source_p, char *list, const char *t
     }
 
     /* @#channel or +#channel message ? */
-    type = 0;
-    with_prefix = name;
+    unsigned int type = 0;
+    const char *with_prefix = name;
 
     /* Allow %+@ if someone wants to do that */
     while (1)

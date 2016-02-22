@@ -72,13 +72,20 @@ listener_free(struct Listener *listener)
  * returns "host.foo.org/6667" for a given listener
  */
 const char *
-listener_get_name(const struct Listener *const listener)
+listener_get_name(const struct Listener *listener)
 {
   static char buf[HOSTLEN + HOSTIPLEN + PORTNAMELEN + 4];  /* +4 for [,/,],\0 */
 
   snprintf(buf, sizeof(buf), "%s[%s/%u]", me.name,
            listener->name, listener->port);
   return buf;
+}
+
+void
+listener_count_memory(unsigned int *count, size_t *bytes)
+{
+  (*count) = dlink_list_length(&listener_list);
+  (*bytes) = *count * sizeof(struct Listener);
 }
 
 static void
