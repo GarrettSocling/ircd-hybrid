@@ -110,6 +110,14 @@ dline_handle(struct Client *source_p, const char *addr, const char *reason,
   int bits = 0, aftype = 0;
   struct MaskItem *conf = NULL;
 
+  if (!HasFlag(source_p, FLAGS_SERVICE) && !valid_wild_card(1, addr))
+  {
+    sendto_one_notice(source_p, &me,
+                      ":Please include at least %u non-wildcard characters with the mask",
+                      ConfigGeneral.min_nonwildcard);
+    return;
+  }
+
   switch (parse_netmask(addr, &daddr, &bits))
   {
     case HM_IPV4:
@@ -214,7 +222,7 @@ mo_dline(struct Client *source_p, int parc, char *parv[])
     return 0;
   }
 
-  if (!parse_aline("DLINE", source_p, parc, parv, AWILD, &dlhost,
+  if (!parse_aline("DLINE", source_p, parc, parv, &dlhost,
                    NULL, &duration, &target_server, &reason))
     return 0;
 
@@ -277,7 +285,6 @@ static int
 ms_dline(struct Client *source_p, int parc, char *parv[])
 {
   const char *dlhost, *reason;
-  uintmax_t duration = 0;
 
   if (parc != 5 || EmptyString(parv[4]))
     return 0;
@@ -288,14 +295,13 @@ ms_dline(struct Client *source_p, int parc, char *parv[])
   if (match(parv[1], me.name))
     return 0;
 
-  duration = valid_tkline(parv[2], TK_SECONDS);
   dlhost = parv[3];
   reason = parv[4];
 
   if (HasFlag(source_p, FLAGS_SERVICE) ||
       shared_find(SHARED_DLINE, source_p->servptr->name,
                   source_p->username, source_p->host))
-    dline_handle(source_p, dlhost, reason, duration);
+    dline_handle(source_p, dlhost, reason, strtoumax(parv[2], NULL, 10));
 
   return 0;
 }

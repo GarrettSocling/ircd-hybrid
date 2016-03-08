@@ -93,9 +93,13 @@ kline_handle(struct Client *source_p, const char *user, const char *host,
   struct irc_ssaddr iphost, *piphost = NULL;
   struct MaskItem *conf = NULL;
 
-  if (!HasFlag(source_p, FLAGS_SERVICE))
-    if (!valid_wild_card(source_p, 2, user, host))
-      return;
+  if (!HasFlag(source_p, FLAGS_SERVICE) && !valid_wild_card(2, user, host))
+  {
+    sendto_one_notice(source_p, &me,
+                      ":Please include at least %u non-wildcard characters with the mask",
+                      ConfigGeneral.min_nonwildcard);
+    return;
+  }
 
   switch (parse_netmask(host, &iphost, &bits))
   {
@@ -206,7 +210,7 @@ mo_kline(struct Client *source_p, int parc, char *parv[])
     return 0;
   }
 
-  if (!parse_aline("KLINE", source_p, parc, parv, AWILD, &user, &host,
+  if (!parse_aline("KLINE", source_p, parc, parv, &user, &host,
                    &duration, &target_server, &reason))
     return 0;
 
@@ -246,7 +250,6 @@ mo_kline(struct Client *source_p, int parc, char *parv[])
 static int
 ms_kline(struct Client *source_p, int parc, char *parv[])
 {
-  uintmax_t duration = 0;
   const char *user, *host, *reason;
 
   if (parc != 6 || EmptyString(parv[5]))
@@ -258,7 +261,6 @@ ms_kline(struct Client *source_p, int parc, char *parv[])
   if (match(parv[1], me.name))
     return 0;
 
-  duration = valid_tkline(parv[2], TK_SECONDS);
   user = parv[3];
   host = parv[4];
   reason = parv[5];
@@ -266,7 +268,7 @@ ms_kline(struct Client *source_p, int parc, char *parv[])
   if (HasFlag(source_p, FLAGS_SERVICE) ||
       shared_find(SHARED_KLINE, source_p->servptr->name,
                   source_p->username, source_p->host))
-    kline_handle(source_p, user, host, reason, duration);
+    kline_handle(source_p, user, host, reason, strtoumax(parv[2], NULL, 10));
 
   return 0;
 }
