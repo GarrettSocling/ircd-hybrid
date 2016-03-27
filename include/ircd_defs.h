@@ -37,8 +37,9 @@
 #define HOSTLEN          63     /* Length of hostname. Updated to comply
                                    with RFC 1123 */
 /*
- * NICKLEN: do not change this; if you want to change the maximum
- * allowed nickname length, you can do this in the ircd.conf
+ * NICKLEN: maximum size of a nick name that your server will be able to handle
+ * when receiving nicks from remote servers. Do not change this; if you want to
+ * change the maximum allowed nickname length, you can do this in the ircd.conf
  */
 #define NICKLEN         30
 #define USERLEN         10
@@ -51,9 +52,14 @@
                               generated length; DO NOT CHANGE! */
 #define REALLEN         50
 #define CHANNELLEN      50
+
+/*
+ * TOPICLEN: maximum size of a topic that your server will be able to handle
+ * when receiving topics from remote servers. Do not change this; if you want to
+ * change the maximum allowed topic length, you can do this in the ircd.conf
+ */
 #define TOPICLEN        300
-#define KILLLEN         240
-#define REASONLEN       240
+#define REASONLEN       260
 #define KICKLEN         180
 #define AWAYLEN         180
 #define KEYLEN          23
