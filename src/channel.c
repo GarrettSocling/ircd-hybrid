@@ -481,11 +481,9 @@ add_invite(struct Channel *chptr, struct Client *client_p)
 
   del_invite(chptr, client_p);
 
-  /*
-   * Delete last link in chain if the list is max length
-   */
-  if (dlink_list_length(&client_p->connection->invited) && 
-      dlink_list_length(&client_p->connection->invited) >= ConfigChannel.max_channels)
+  /* Delete last link in chain if the list is max length */
+  while (dlink_list_length(&client_p->connection->invited) && 
+         dlink_list_length(&client_p->connection->invited) >= ConfigChannel.max_channels)
     del_invite(client_p->connection->invited.tail->data, client_p);
 
   /* Add client to channel invite list */
@@ -948,7 +946,6 @@ void
 channel_do_join(struct Client *client_p, char *channel, char *key_list)
 {
   char *p = NULL;
-  char *chan = NULL;
   char *chan_list = NULL;
   struct Channel *chptr = NULL;
   const struct ResvItem *resv = NULL;
@@ -960,8 +957,8 @@ channel_do_join(struct Client *client_p, char *channel, char *key_list)
 
   chan_list = channel_find_last0(client_p, channel);
 
-  for (chan = strtok_r(chan_list, ",", &p); chan;
-       chan = strtok_r(NULL,      ",", &p))
+  for (const char *chan = strtok_r(chan_list, ",", &p); chan;
+                   chan = strtok_r(NULL,      ",", &p))
   {
     const char *key = NULL;
 
