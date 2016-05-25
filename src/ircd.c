@@ -225,22 +225,6 @@ initialize_global_set_options(void)
   GlobalSetOptions.ident_timeout = IDENT_TIMEOUT;
 }
 
-/* initialize_server_capabs()
- *
- * inputs       - none
- * output       - none
- */
-static void
-initialize_server_capabs(void)
-{
-  add_capability("QS", CAPAB_QS);
-  add_capability("EOB", CAPAB_EOB);
-  add_capability("CLUSTER", CAPAB_CLUSTER);
-  add_capability("SVS", CAPAB_SVS);
-  add_capability("CHW", CAPAB_CHW);
-  add_capability("HOPS", CAPAB_HOPS);
-}
-
 /* write_pidfile()
  *
  * inputs       - filename+path of pid file
@@ -409,7 +393,7 @@ main(int argc, char *argv[])
   if (!server_state.foreground)
   {
     make_daemon();
-    close_standard_fds(); /* this needs to be before init_netio()! */
+    close_standard_fds(); /* this needs to be before netio_init()! */
   }
   else
     print_startup(getpid());
@@ -420,7 +404,7 @@ main(int argc, char *argv[])
   fdlist_init();
   log_set_file(LOG_TYPE_IRCD, 0, logFileName);
 
-  init_netio();         /* This needs to be setup early ! -- adrian */
+  netio_init();         /* This needs to be setup early ! -- adrian */
   tls_init();
 
   /* Check if there is pidfile and daemon already running */
@@ -438,10 +422,10 @@ main(int argc, char *argv[])
   whowas_init();
   watch_init();
   auth_init();          /* Initialise the auth code */
-  init_resolver();      /* Needs to be setup before the io loop */
+  resolver_init();      /* Needs to be setup before the io loop */
   modules_init();
   read_conf_files(1);   /* cold start init conf files */
-  initialize_server_capabs();   /* Set up default_server_capabs */
+  server_capab_init();  /* Set up default_server_capabs */
   initialize_global_set_options();  /* Has to be called after read_conf_files() */
   channel_init();
   read_links_file();
