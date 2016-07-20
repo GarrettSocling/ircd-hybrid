@@ -296,6 +296,9 @@ change_remote_nick(struct Client *source_p, char *parv[])
     assert(source_p->tsinfo > 0);
   }
 
+  sendto_realops_flags(UMODE_NCHANGE, L_ALL, SEND_NOTICE,
+                       "Nick change: From %s to %s [%s@%s]",
+                       source_p->name, parv[1], source_p->username, source_p->host);
   sendto_common_channels_local(source_p, 1, 0, 0, ":%s!%s@%s NICK :%s",
                                source_p->name, source_p->username,
                                source_p->host, parv[1]);
@@ -528,8 +531,8 @@ perform_nick_change_collides(struct Client *source_p, struct Client *target_p,
     else
       sendto_realops_flags(UMODE_SERVNOTICE, L_ALL, SEND_NOTICE,
            "Nick change collision from %s to %s(%s <- %s)(newer killed)",
-             source_p->name, target_p->name, target_p->from->name,
-             source_p->from->name);
+           source_p->name, target_p->name, target_p->from->name,
+           source_p->from->name);
 
     ++ServerStats.is_kill;
 
