@@ -12,6 +12,11 @@ env:
 compiler:
  - gcc
 
+matrix:
+  exclude:
+    - os: osx
+      compiler: gcc
+
 addons:
   coverity_scan:
     project:
