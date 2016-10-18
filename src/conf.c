@@ -639,6 +639,7 @@ set_default_conf(void)
   ConfigChannel.invite_client_count = 10;
   ConfigChannel.invite_client_time = 300;
   ConfigChannel.invite_delay_channel = 5;
+  ConfigChannel.invite_expire_time = 1800;
   ConfigChannel.knock_client_count = 1;
   ConfigChannel.knock_client_time = 300;
   ConfigChannel.knock_delay_channel = 60;
@@ -1185,7 +1186,7 @@ yyerror(const char *msg)
   if (conf_parser_ctx.pass != 1)
     return;
 
-  char *p = stripws(linebuf);
+  const char *p = stripws(linebuf);
   sendto_realops_flags(UMODE_SERVNOTICE, L_ADMIN, SEND_NOTICE,
                        "\"%s\", line %u: %s: %s",
                        conffilebuf, lineno, msg, p);
@@ -1196,7 +1197,7 @@ yyerror(const char *msg)
 void
 conf_error_report(const char *msg)
 {
-  char *p = stripws(linebuf);
+  const char *p = stripws(linebuf);
   sendto_realops_flags(UMODE_SERVNOTICE, L_ADMIN, SEND_NOTICE,
                        "\"%s\", line %u: %s: %s",
                        conffilebuf, lineno, msg, p);
