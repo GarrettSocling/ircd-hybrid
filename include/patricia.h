@@ -36,34 +36,20 @@
 #ifndef _PATRICIA_H
 #define _PATRICIA_H
 
-/* typedef unsigned int u_int; */
-typedef void (*void_fn_t)();
 /* { from defs.h */
-#define prefix_touchar(prefix) ((u_char *)&(prefix)->add.sin)
+#define prefix_touchar(prefix) ((unsigned char *)&(prefix)->add.sin)
 #define MAXLINE 1024
 #define BIT_TEST(f, b)  ((f) & (b))
 /* } */
 
-#define addroute make_and_lookup
-
-#include <sys/types.h> /* for u_* definitions (on FreeBSD 5) */
-
-#include <errno.h> /* for EAFNOSUPPORT */
 #include <netinet/in.h> /* for struct in_addr */
 #include <sys/socket.h> /* for AF_INET */
 
 /* { from mrt.h */
 
-typedef struct _prefix4_t {
-    u_short family;		/* AF_INET | AF_INET6 */
-    u_short bitlen;		/* same as mask? */
-    int ref_count;		/* reference count */
-    struct in_addr sin;
-} prefix4_t;
-
 typedef struct _prefix_t {
-    u_short family;		/* AF_INET | AF_INET6 */
-    u_short bitlen;		/* same as mask? */
+    unsigned short family;		/* AF_INET | AF_INET6 */
+    unsigned short bitlen;		/* same as mask? */
     int ref_count;		/* reference count */
     union {
 		struct in_addr sin;
@@ -74,7 +60,7 @@ typedef struct _prefix_t {
 /* } */
 
 typedef struct _patricia_node_t {
-   u_int bit;			/* flag if this node used */
+   unsigned int bit;			/* flag if this node used */
    prefix_t *prefix;		/* who we are in patricia tree */
    struct _patricia_node_t *l, *r;	/* left and right children */
    struct _patricia_node_t *parent;/* may be used */
@@ -84,7 +70,7 @@ typedef struct _patricia_node_t {
 
 typedef struct _patricia_tree_t {
    patricia_node_t 	*head;
-   u_int		maxbits;	/* for IP, 32 bit addresses */
+   unsigned int		maxbits;	/* for IP, 32 bit addresses */
    int num_active_node;		/* for debug purpose */
 } patricia_tree_t;
 
@@ -96,21 +82,18 @@ extern patricia_node_t * patricia_search_best2 (patricia_tree_t *patricia, prefi
 extern patricia_node_t *patricia_lookup (patricia_tree_t *patricia, prefix_t *prefix);
 extern void patricia_remove (patricia_tree_t *patricia, patricia_node_t *node);
 extern patricia_tree_t *New_Patricia (int maxbits);
-extern void Clear_Patricia (patricia_tree_t *patricia, void_fn_t func);
-extern void Destroy_Patricia (patricia_tree_t *patricia, void_fn_t func);
+extern void Clear_Patricia (patricia_tree_t *patricia, void (*func)(void *));
+extern void Destroy_Patricia (patricia_tree_t *patricia, void (*func)(void *));
 
-extern void patricia_process (patricia_tree_t *patricia, void_fn_t func);
+extern void patricia_process (patricia_tree_t *patricia, void (*func)(prefix_t *, void *));
 
 extern const char *prefix_toa (prefix_t * prefix);
-extern void lookup_then_remove(patricia_tree_t *, char *);
-extern patricia_node_t *try_search_exact(patricia_tree_t *, char *);
+extern void lookup_then_remove(patricia_tree_t *, const char *);
+extern patricia_node_t *try_search_exact(patricia_tree_t *, const char *);
 /* { from demo.c */
 
-extern prefix_t *
-ascii2prefix (int family, char *string);
-
 extern patricia_node_t *
-make_and_lookup (patricia_tree_t *tree, char *string);
+make_and_lookup (patricia_tree_t *tree, const char *string);
 
 /* } */
 
